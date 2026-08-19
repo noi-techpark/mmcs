@@ -45,6 +45,20 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
   const connect = useFeatureStore((s) => s.connect)
   const [mapReady, setMapReady] = useState(false)
   const [placements, setPlacements] = useState<Placement[]>([])
+  // Bumped on every recompute and used as the pan-tracking <g>'s `key`, so
+  // React unmounts the old (possibly still-panned) node and mounts a fresh,
+  // transform-less one in the very same commit as the new placements —
+  // rather than us imperatively clearing a lingering transform and hoping
+  // it lands in the same paint as React's own DOM update for the new
+  // positions. That imperative approach could win the race either way:
+  // clearing too early (synchronously, before React's batched/async commit)
+  // flashed the old placements at zero-transform for a frame; deferring it
+  // (rAF, useLayoutEffect) then risked landing a frame *after* instead,
+  // since MapLibre's 'idle' can itself fire synchronously from inside our
+  // own effects, which made the ordering genuinely unpredictable. A key
+  // change guarantees old-node-teardown and new-content-mount happen
+  // atomically, so there's no window where they can be out of sync.
+  const [recomputeGen, setRecomputeGen] = useState(0)
   const panGroupRef = useRef<SVGGElement>(null)
   // The camera center + its screen position at the moment `placements` was
   // last computed. Panning translates every placement by exactly the same
@@ -168,8 +182,8 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
 
     const recompute = () => {
       setPlacements(computePlacements({ map, visibleLayers, layerOptions }))
+      setRecomputeGen((g) => g + 1)
       panBaseRef.current = { lngLat: map.getCenter(), pixel: map.project(map.getCenter()) }
-      panGroupRef.current?.removeAttribute('transform')
     }
     recompute()
     map.on('idle', recompute)
@@ -197,7 +211,11 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
       const pixel = map.project(base.lngLat)
       const dx = pixel.x - base.pixel.x
       const dy = pixel.y - base.pixel.y
-      panGroupRef.current?.setAttribute('transform', `translate(${dx},${dy})`)
+      // The CSS transform *property* (as opposed to the SVG "transform"
+      // *attribute*) lets the browser move this as a compositor-only step
+      // instead of re-running SVG layout every frame — the same mechanism
+      // that makes CSS transform animations smooth.
+      if (panGroupRef.current) panGroupRef.current.style.transform = `translate(${dx}px, ${dy}px)`
     }
     map.on('render', onRender)
     return () => {
@@ -212,7 +230,7 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
         data-testid="label-overlay"
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
       >
-        <g ref={panGroupRef}>
+        <g key={recomputeGen} ref={panGroupRef}>
         {placements.map((p) => {
           const edge = edgePoint(p.dot, p.rect)
           return (

@@ -12,14 +12,22 @@ const backendHost = process.env.BACKEND_HOST ?? 'localhost:8080'
 // won't emit it on its own. Dev mode happens to work anyway because Vite's
 // dev server resolves that relative request straight from node_modules;
 // only the production build needs this copied in by hand.
+// maplibre-gl-worker.mjs itself then statically imports ./maplibre-gl-shared.mjs
+// (code shared between the main thread and the worker) — since the worker
+// is loaded by the browser as a raw file rather than processed by Vite,
+// that import needs the same manual copy.
+const MAPLIBRE_ASSETS = ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']
+
 function copyMaplibreWorker(): Plugin {
   return {
     name: 'copy-maplibre-worker',
     closeBundle() {
-      const src = resolve(import.meta.dirname, 'node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs')
-      const dest = resolve(import.meta.dirname, 'dist/assets/maplibre-gl-worker.mjs')
-      mkdirSync(dirname(dest), { recursive: true })
-      copyFileSync(src, dest)
+      for (const file of MAPLIBRE_ASSETS) {
+        const src = resolve(import.meta.dirname, 'node_modules/maplibre-gl/dist', file)
+        const dest = resolve(import.meta.dirname, 'dist/assets', file)
+        mkdirSync(dirname(dest), { recursive: true })
+        copyFileSync(src, dest)
+      }
     },
   }
 }

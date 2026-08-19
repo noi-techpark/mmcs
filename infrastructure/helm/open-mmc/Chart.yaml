@@ -1,0 +1,6 @@
+apiVersion: v2
+name: open-mmc
+description: Helm chart for open-mmc, the real-time mobility dashboard for the Province of Bolzano
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

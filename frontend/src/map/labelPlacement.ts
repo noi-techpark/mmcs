@@ -24,6 +24,7 @@ export interface Placement {
   id: string
   text: string
   color: string
+  opacity: number
   lngLat: [number, number]
   dot: Point
   rect: Rect
@@ -105,7 +106,7 @@ export function computePlacements({ map, visibleLayers, layerOptions }: ComputeA
     }
   }
 
-  const targets: { id: string; text: string; color: string; lngLat: [number, number]; dot: Point; feature: Feature }[] = []
+  const targets: { id: string; text: string; color: string; opacity: number; lngLat: [number, number]; dot: Point; feature: Feature }[] = []
   for (const def of LAYER_DEFINITIONS) {
     if (!visibleLayers.has(def.id) || !def.getLabelTargets) continue
     if (layerOptions[def.id]?.labels !== true) continue
@@ -115,6 +116,7 @@ export function computePlacements({ map, visibleLayers, layerOptions }: ComputeA
         id: `${def.id}:${t.id}`,
         text: t.text,
         color: t.color,
+        opacity: t.opacity ?? 1,
         lngLat: t.lngLat,
         dot: { x: pt.x, y: pt.y },
         feature: t.feature,
@@ -164,6 +166,7 @@ export function computePlacements({ map, visibleLayers, layerOptions }: ComputeA
       id: target.id,
       text: target.text,
       color: target.color,
+      opacity: target.opacity,
       lngLat: target.lngLat,
       dot: target.dot,
       rect: best.rect,

@@ -222,26 +222,9 @@ export function Sidebar({ visibleLayers, onToggle, layerOptions, onOptionsChange
                 </span>
               </div>
 
-              {isExpanded && (
+              {isExpanded && OptionsPanel && (
                 <div style={{ padding: '2px 10px 12px' }} onClick={(e) => e.stopPropagation()}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: '#9a9ea5', marginBottom: 4 }}>
-                    <span>Opacity</span>
-                    <span>{Math.round(options.opacity * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={options.opacity}
-                    onChange={(e) => onOptionsChange(def.id, { ...options, opacity: Number(e.target.value) })}
-                    style={{ width: '100%', accentColor: '#6da7ec' }}
-                  />
-                  {OptionsPanel && (
-                    <div style={{ marginTop: 10 }}>
-                      <OptionsPanel options={options} onChange={(next) => onOptionsChange(def.id, next)} />
-                    </div>
-                  )}
+                  <OptionsPanel options={options} onChange={(next) => onOptionsChange(def.id, next)} />
                 </div>
               )}
             </div>

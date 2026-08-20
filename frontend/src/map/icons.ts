@@ -45,6 +45,29 @@ function withOutline(ctx: CanvasRenderingContext2D, color: string, shape: () => 
   ctx.stroke()
 }
 
+/** Like withOutline, but for a shape already built as a Path2D (used for the train/bus glyphs, so their body outline is drawn from the exact same path data as the sidebar SVG in LayerIcon.tsx, just scaled up). */
+function withOutlinePath(ctx: CanvasRenderingContext2D, color: string, path: Path2D) {
+  withShadow(ctx, () => {
+    ctx.fillStyle = color
+    ctx.fill(path)
+  })
+  ctx.lineWidth = 7
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)'
+  ctx.lineJoin = 'round'
+  ctx.stroke(path)
+}
+
+function roundRectPath(x: number, y: number, w: number, h: number, r: number): Path2D {
+  const path = new Path2D()
+  path.moveTo(x + r, y)
+  path.arcTo(x + w, y, x + w, y + h, r)
+  path.arcTo(x + w, y + h, x, y + h, r)
+  path.arcTo(x, y + h, x, y, r)
+  path.arcTo(x, y, x + w, y, r)
+  path.closePath()
+  return path
+}
+
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath()
   ctx.moveTo(x + r, y)
@@ -66,19 +89,25 @@ function parkingIcon(color: string): ImageData {
   return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
 }
 
+// The same glyph as LayerIcon.tsx's train_vehicle case, scaled 8x from its
+// 16x16 SVG viewBox to this module's 128x128 render size — kept in lockstep
+// with the sidebar rather than redrawn as an approximation, so the map icon
+// and the legend icon are the same shape.
+const TRAIN_BODY_D = 'M20 52 A44 44 0 0 1 108 52 V96 A10 10 0 0 1 98 106 H30 A10 10 0 0 1 20 96 Z'
+const TRAIN_RAILS_D = 'M58 98 L50 98 L8 126 L24 126 Z M70 98 L78 98 L120 126 L104 126 Z'
+
 function trainIcon(color: string): ImageData {
   const ctx = newCtx()
-  const shape = () => {
-    roundRect(ctx, 28, 16, 72, 76, 20)
-    ctx.moveTo(58, 100)
-    ctx.arc(48, 100, 10, 0, Math.PI * 2)
-    ctx.moveTo(90, 100)
-    ctx.arc(80, 100, 10, 0, Math.PI * 2)
-  }
-  withOutline(ctx, color, shape)
+  withOutlinePath(ctx, color, new Path2D(TRAIN_BODY_D))
   ctx.fillStyle = '#ffffff'
-  roundRect(ctx, 38, 28, 52, 30, 8)
+  roundRect(ctx, 39, 34, 50, 32, 6)
   ctx.fill()
+  ctx.fillRect(34, 78, 14, 14)
+  ctx.fillRect(80, 78, 14, 14)
+  // rails, beneath the vehicle — plain fill (no outline stroke), in the
+  // same status color so they read as attached to it
+  ctx.fillStyle = color
+  ctx.fill(new Path2D(TRAIN_RAILS_D))
   return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
 }
 
@@ -146,12 +175,55 @@ function flightIcon(color: string): ImageData {
   return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
 }
 
+// The same glyph as LayerIcon.tsx's bus_vehicle case, scaled 8x from its
+// 16x16 SVG viewBox — a plain rounded-rect body, one window band, and two
+// wheel circles bumping out beneath it, drawn in that same order (body,
+// window, wheels) so the wheels sit on top of the body fill as they do in
+// the sidebar SVG.
+function busIcon(color: string): ImageData {
+  const ctx = newCtx()
+  withOutlinePath(ctx, color, roundRectPath(8, 24, 112, 76, 16))
+  ctx.fillStyle = '#ffffff'
+  roundRect(ctx, 20, 36, 88, 20, 4)
+  ctx.fill()
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.arc(36, 100, 14, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(92, 100, 14, 0, Math.PI * 2)
+  ctx.fill()
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
+// A triangle badge (the sixth base shape) with a white exclamation mark —
+// for SIRI-SX service alerts, which aren't vehicles so shouldn't share the
+// bus/train silhouettes.
+function alertIcon(color: string): ImageData {
+  const ctx = newCtx()
+  withOutline(ctx, color, () => {
+    ctx.beginPath()
+    ctx.moveTo(64, 14)
+    ctx.lineTo(116, 108)
+    ctx.lineTo(12, 108)
+    ctx.closePath()
+  })
+  ctx.fillStyle = '#ffffff'
+  roundRect(ctx, 57, 46, 14, 34, 6)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(64, 92, 7, 0, Math.PI * 2)
+  ctx.fill()
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
 const DRAWERS: Record<string, (color: string) => ImageData> = {
   parking: parkingIcon,
   e_charging: eChargingIcon,
   train_vehicle: trainIcon,
-  bus_vehicle: trainIcon,
-  on_demand_vehicle: trainIcon,
+  bus_vehicle: busIcon,
+  bus_alert: alertIcon,
+  on_demand_vehicle: busIcon,
   flight: flightIcon,
 }
 
@@ -167,3 +239,4 @@ export function registerIcons(map: maplibregl.Map, layer: Layer, colorRules: Col
     map.addImage(iconImageId(layer, rule.key), draw(rule.color))
   }
 }
+

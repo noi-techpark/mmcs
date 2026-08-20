@@ -1,6 +1,8 @@
 import { parkingLayer } from './parking'
 import { eChargingLayer } from './eCharging'
 import { trainsLayer } from './trains'
+import { busLayer } from './bus'
+import { situationsLayer } from './situations'
 import { flightsLayer } from './flights'
 import type { LayerDefinition } from './types'
 
@@ -12,4 +14,11 @@ import type { LayerDefinition } from './types'
 // Array order is also the default z-order / sidebar order (first = top of
 // both the list and the map stack) — the user can drag to change it at
 // runtime (see App.tsx layerOrder state), this is just the starting point.
-export const LAYER_DEFINITIONS: LayerDefinition[] = [trainsLayer, parkingLayer, eChargingLayer, flightsLayer]
+export const LAYER_DEFINITIONS: LayerDefinition[] = [
+  trainsLayer,
+  busLayer,
+  situationsLayer,
+  parkingLayer,
+  eChargingLayer,
+  flightsLayer,
+]

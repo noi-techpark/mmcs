@@ -233,7 +233,7 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
         {placements.map((p) => {
           const edge = edgePoint(p.dot, p.rect)
           return (
-            <g key={p.id}>
+            <g key={p.id} opacity={p.opacity}>
               <line x1={p.dot.x} y1={p.dot.y} x2={edge.x} y2={edge.y} stroke={p.color} strokeWidth={1.5} />
               <g
                 onClick={() => onFeatureSelectRef.current(p.feature)}

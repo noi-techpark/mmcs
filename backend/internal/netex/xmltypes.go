@@ -17,6 +17,21 @@ type xmlStopPoint struct {
 	} `xml:"Location"`
 }
 
+// xmlQuay is a boarding point within a StopPlace. Its id embeds the
+// original source system's stop id (e.g. "it:apb:Quay:it:22021:2189:0:5133")
+// — the same scheme SIRI-SX's StopPointRef uses — which is why this is
+// parsed separately from ScheduledStopPoint.
+type xmlQuay struct {
+	ID       string `xml:"id,attr"`
+	Name     string `xml:"Name"`
+	Centroid struct {
+		Location struct {
+			Longitude float64 `xml:"Longitude"`
+			Latitude  float64 `xml:"Latitude"`
+		} `xml:"Location"`
+	} `xml:"Centroid"`
+}
+
 type xmlLine struct {
 	ID            string `xml:"id,attr"`
 	Version       string `xml:"version,attr"`

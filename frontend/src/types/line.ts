@@ -38,3 +38,29 @@ export interface Journey {
   geometry: [number, number][]
   departure: Departure
 }
+
+// Mirrors backend/internal/feeds/siri/et.go's EstimatedCall/
+// EstimatedVehicleJourney — SIRI-ET's real-time ETA schedule for a single
+// bus trip, fetched on demand from /api/estimated-timetable. Shown as-is in
+// the detail view, not merged with the NeTEx-derived Journey above.
+export interface EstimatedCall {
+  StopPointRef: string
+  StopPointName: string
+  DestinationDisplay?: string
+  AimedArrivalTime?: string
+  ExpectedArrivalTime?: string
+  AimedDepartureTime?: string
+  ExpectedDepartureTime?: string
+}
+
+export interface EstimatedTimetable {
+  LineRef: string
+  DirectionRef: string
+  PublishedLineName: string
+  DirectionName: string
+  OperatorRef: string
+  Monitored: string
+  EstimatedCalls: {
+    EstimatedCall: EstimatedCall[]
+  }
+}

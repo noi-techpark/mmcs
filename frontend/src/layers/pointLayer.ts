@@ -27,7 +27,7 @@
 import * as maplibregl from 'maplibre-gl'
 import { STATUS_COLORS, STATUS_COLOR_RULES } from '../map/colors'
 import { registerIcons, iconImageId, ICON_RENDER_SCALE } from '../map/icons'
-import { PointLayerOptions } from './PointLayerOptions'
+import { createPointLayerOptions } from './PointLayerOptions'
 import type { LayerDefinition, LayerOptions, LabelTarget, ColorRule } from './types'
 import type { Feature, Layer } from '../types/feature'
 
@@ -53,6 +53,8 @@ export function createPointLayer(
   overrides: Partial<LayerOptions> = {},
   colorRules: ColorRule[] = STATUS_COLOR_RULES,
   defaultVisible = true,
+  /** When set, hovering an (unclustered) icon shows a small popup built from this. Return '' to skip. */
+  tooltip?: (props: Feature['properties']) => string,
 ): LayerDefinition {
   const clusteredSourceId = id
   const flatSourceId = `${id}-flat`
@@ -75,11 +77,24 @@ export function createPointLayer(
     iconImageId(id, fallbackRule.key),
   ] as unknown as maplibregl.ExpressionSpecification
 
+  // Whether any rule in this set actually varies opacity (parking
+  // occupancy, train/bus delay) — only those layers get a "Dynamic
+  // opacity" toggle, and only they need the per-feature opacity
+  // expression below instead of a flat 1.
+  const hasGradientOpacity = colorRules.some((r) => (r.opacity ?? 1) < 1)
+  const dynamicOpacityExpr = [
+    'match',
+    ['get', '_colorKey'],
+    ...colorRules.slice(0, -1).flatMap((r) => [r.key, r.opacity ?? 1]),
+    fallbackRule.opacity ?? 1,
+  ] as unknown as maplibregl.ExpressionSpecification
+
   // Mutable so a single map-layer-visibility update can account for the
   // layer's on/off state and its clustering option together.
   let currentlyVisible = true
   let clusteringEnabled = overrides.clustering === true
   let labelsEnabled = overrides.labels === true
+  let dynamicOpacityEnabled = overrides.dynamicOpacity !== false
 
   function syncVisibility(map: maplibregl.Map) {
     if (!map.getLayer(clusteredPointsLayerId)) return
@@ -103,14 +118,17 @@ export function createPointLayer(
         'icon-size': ICON_RENDER_SCALE,
         'icon-allow-overlap': true,
       },
+      paint: {
+        'icon-opacity': hasGradientOpacity ? dynamicOpacityExpr : 1,
+      },
     })
   }
 
   return {
     id,
     label,
-    defaultOptions: { opacity: 1, clustering: false, labels: false, ...overrides },
-    OptionsPanel: PointLayerOptions,
+    defaultOptions: { opacity: 1, clustering: false, labels: false, dynamicOpacity: true, ...overrides },
+    OptionsPanel: createPointLayerOptions(hasGradientOpacity),
     iconLayerIds: [clusterLayerId, clusteredPointsLayerId, flatPointsLayerId],
     mapLayerIds: [clusterLayerId, countLayerId, clusteredPointsLayerId, flatPointsLayerId],
     defaultVisible,
@@ -187,10 +205,27 @@ export function createPointLayer(
         if (!f) return
         ctx.onSelectFeature(toFeature(f))
       }
+      // Hover popup, one instance reused across every point in this layer
+      // rather than per-feature — cheap to move, and only one can be open
+      // (under the cursor) at a time anyway.
+      const hoverPopup = tooltip
+        ? new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 14 })
+        : null
       for (const layerId of [clusteredPointsLayerId, flatPointsLayerId]) {
         map.on('click', layerId, selectFeature)
-        map.on('mouseenter', layerId, () => (map.getCanvas().style.cursor = 'pointer'))
-        map.on('mouseleave', layerId, () => (map.getCanvas().style.cursor = ''))
+        map.on('mouseenter', layerId, (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
+          map.getCanvas().style.cursor = 'pointer'
+          const f = e.features?.[0]
+          if (!tooltip || !hoverPopup || !f) return
+          const html = tooltip(toFeature(f).properties)
+          if (!html) return
+          const coords = (f.geometry as { coordinates: [number, number] }).coordinates
+          hoverPopup.setLngLat(coords).setHTML(html).addTo(map)
+        })
+        map.on('mouseleave', layerId, () => {
+          map.getCanvas().style.cursor = ''
+          hoverPopup?.remove()
+        })
       }
 
       syncVisibility(map)
@@ -215,11 +250,13 @@ export function createPointLayer(
       if (!map.getLayer(clusteredPointsLayerId)) return
       clusteringEnabled = options.clustering === true
       labelsEnabled = options.labels === true
+      dynamicOpacityEnabled = options.dynamicOpacity !== false
       syncVisibility(map)
 
       const opacity = options.opacity
-      map.setPaintProperty(clusteredPointsLayerId, 'icon-opacity', opacity)
-      map.setPaintProperty(flatPointsLayerId, 'icon-opacity', opacity)
+      const dynamicOpacityOn = hasGradientOpacity && options.dynamicOpacity !== false
+      map.setPaintProperty(clusteredPointsLayerId, 'icon-opacity', dynamicOpacityOn ? dynamicOpacityExpr : opacity)
+      map.setPaintProperty(flatPointsLayerId, 'icon-opacity', dynamicOpacityOn ? dynamicOpacityExpr : opacity)
       map.setPaintProperty(clusterLayerId, 'circle-opacity', 0.85 * opacity)
       map.setPaintProperty(countLayerId, 'text-opacity', opacity)
     },
@@ -244,11 +281,13 @@ export function createPointLayer(
         if (seen.has(dedupeKey)) continue
         seen.add(dedupeKey)
         const feature = toFeature(f)
+        const rule = classify(feature.properties)
         targets.push({
           id: dedupeKey,
           lngLat: coords,
           text: feature.properties.name ?? '',
-          color: classify(feature.properties).color,
+          color: rule.color,
+          opacity: hasGradientOpacity && dynamicOpacityEnabled ? rule.opacity ?? 1 : 1,
           feature,
         })
       }

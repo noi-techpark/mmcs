@@ -20,6 +20,7 @@ import (
 )
 
 const siriBaseURL = "https://siri.api.opendatahub.com"
+const siriLiteBaseURL = "https://efa.sta.bz.it"
 const skyalpsGTFSURL = "https://gtfs.api.opendatahub.com/v1/dataset/skyalps-flight-data/raw"
 
 const bolzanoAirportLon = 11.3264
@@ -47,11 +48,19 @@ func main() {
 	siriClient := siri.NewClient(siriBaseURL)
 	go siri.Poll(ctx, siriClient, "SAD-trains", model.LayerTrainVeh, 15*time.Second, fs)
 
+	siriLiteClient := siri.NewLiteClient(siriLiteBaseURL)
+	go siri.PollLite(ctx, siriLiteClient, "sta-bus", model.LayerBusVeh, 15*time.Second, fs)
+
+	etStore := siri.NewETStore()
+	go siri.PollET(ctx, siriLiteClient, 60*time.Second, etStore)
+
 	gtfsClient := gtfs.NewClient()
 	go gtfs.Poll(ctx, gtfsClient, skyalpsGTFSURL, "BZO", "Bolzano Airport", bolzanoAirportLon, bolzanoAirportLat, 7, time.Hour, fs)
 
 	netexStore := netex.NewStore()
 	go netex.Poll(ctx, netexStore, time.Hour)
+
+	go siri.PollSX(ctx, siriLiteClient, model.LayerBusAlert, 60*time.Second, fs, netexStore)
 
 	go runStaleSweeper(ctx, fs)
 
@@ -59,6 +68,7 @@ func main() {
 	mux.HandleFunc("/api/layers/", api.SnapshotHandler(fs))
 	mux.HandleFunc("/api/lines/", api.LineHandler(netexStore))
 	mux.HandleFunc("/api/journey", api.JourneyHandler(netexStore))
+	mux.HandleFunc("/api/estimated-timetable", api.EstimatedTimetableHandler(etStore))
 	mux.HandleFunc("/ws", ws.Handler(fs))
 
 	frontendDir := "./static"

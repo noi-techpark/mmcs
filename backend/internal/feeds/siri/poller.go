@@ -42,3 +42,38 @@ func Poll(ctx context.Context, client *Client, datasetID string, layer model.Lay
 		}
 	}
 }
+
+// PollLite runs a SIRI-lite VM feed (the whole province in one response, no
+// datasetId) on a fixed interval, normalizing and upserting each activity.
+// Blocks until ctx is cancelled.
+func PollLite(ctx context.Context, client *LiteClient, datasetID string, layer model.Layer, interval time.Duration, fs store.FeatureStore) {
+	tick := func() {
+		activities, err := client.FetchVM()
+		if err != nil {
+			log.Printf("siri-lite[%s]: %v", datasetID, err)
+			return
+		}
+		n := 0
+		for _, va := range activities {
+			f, ok := NormalizeLite(datasetID, layer, va)
+			if !ok {
+				continue
+			}
+			fs.Upsert(f)
+			n++
+		}
+		log.Printf("siri-lite[%s]: upserted %d features", datasetID, n)
+	}
+
+	tick()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			tick()
+		}
+	}
+}

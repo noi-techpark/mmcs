@@ -12,12 +12,15 @@ import (
 // Parse streams r (the uncompressed NeTEx XML) token by token, retaining
 // only the handful of element types this package needs, then resolves the
 // Line/Route/Stop/Timetable relationships in memory. Full ServiceJourney
-// (timetable) detail is only kept for rail — the feed covers the whole
-// province's bus network too (~56k service journeys vs. ~4k rail), and
-// nothing outside the train layer needs it yet; Lines/Routes/Stops are
-// still resolved for every mode, so a future bus layer has them ready.
-func Parse(r io.Reader, now time.Time) (map[string]Line, error) {
+// (timetable) detail is kept for rail and bus — the two modes the frontend
+// visualizes; Lines/Routes/Stops are resolved for every mode regardless.
+func Parse(r io.Reader, now time.Time) (Data, error) {
 	stops := make(map[string]Stop)
+	// Quay coordinates, keyed by the id NeTEx wraps them in
+	// (it:apb:Quay:<id>) with that wrapper trimmed off — this is the same
+	// id scheme SIRI-SX's StopPointRef uses, so this map is how a
+	// situation's affected stop gets a map position.
+	quays := make(map[string]Stop)
 	lineVersions := make(map[string][]xmlLine)
 	routesByID := make(map[string]xmlRoute)
 	patternsByID := make(map[string]xmlServiceJourneyPattern)
@@ -27,7 +30,7 @@ func Parse(r io.Reader, now time.Time) (map[string]Line, error) {
 	// churn as elsewhere in this feed); first one wins, since alternate
 	// versions of the same physical link are geometrically near-identical.
 	serviceLinks := make(map[string][][2]float64)
-	var railJourneys []xmlServiceJourney
+	var journeys []xmlServiceJourney
 
 	dec := xml.NewDecoder(r)
 	for {
@@ -36,7 +39,7 @@ func Parse(r io.Reader, now time.Time) (map[string]Line, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return Data{}, err
 		}
 		se, ok := tok.(xml.StartElement)
 		if !ok {
@@ -46,25 +49,32 @@ func Parse(r io.Reader, now time.Time) (map[string]Line, error) {
 		case "ScheduledStopPoint":
 			var s xmlStopPoint
 			if err := dec.DecodeElement(&s, &se); err != nil {
-				return nil, err
+				return Data{}, err
 			}
 			stops[s.ID] = Stop{ID: s.ID, Name: s.Name, Lon: s.Location.Longitude, Lat: s.Location.Latitude}
+		case "Quay":
+			var q xmlQuay
+			if err := dec.DecodeElement(&q, &se); err != nil {
+				return Data{}, err
+			}
+			id := normalizeQuayID(q.ID)
+			quays[id] = Stop{ID: id, Name: q.Name, Lon: q.Centroid.Location.Longitude, Lat: q.Centroid.Location.Latitude}
 		case "Line":
 			var l xmlLine
 			if err := dec.DecodeElement(&l, &se); err != nil {
-				return nil, err
+				return Data{}, err
 			}
 			lineVersions[l.ID] = append(lineVersions[l.ID], l)
 		case "Route":
 			var rt xmlRoute
 			if err := dec.DecodeElement(&rt, &se); err != nil {
-				return nil, err
+				return Data{}, err
 			}
 			routesByID[rt.ID] = rt
 		case "ServiceLink":
 			var sl xmlServiceLink
 			if err := dec.DecodeElement(&sl, &se); err != nil {
-				return nil, err
+				return Data{}, err
 			}
 			key := sl.FromPointRef.Ref + "|" + sl.ToPointRef.Ref
 			if _, exists := serviceLinks[key]; !exists {
@@ -73,30 +83,31 @@ func Parse(r io.Reader, now time.Time) (map[string]Line, error) {
 		case "ServiceJourneyPattern":
 			var p xmlServiceJourneyPattern
 			if err := dec.DecodeElement(&p, &se); err != nil {
-				return nil, err
+				return Data{}, err
 			}
 			patternsByID[p.ID] = p
 		case "ServiceJourney":
 			var sj xmlServiceJourney
 			if err := dec.DecodeElement(&sj, &se); err != nil {
-				return nil, err
+				return Data{}, err
 			}
-			if sj.TransportMode == "rail" {
-				railJourneys = append(railJourneys, sj)
+			if sj.TransportMode == "rail" || sj.TransportMode == "bus" {
+				journeys = append(journeys, sj)
 			}
 		}
 	}
 
-	return resolve(now, stops, lineVersions, routesByID, patternsByID, railJourneys, serviceLinks), nil
+	return Data{Lines: resolve(now, stops, quays, lineVersions, routesByID, patternsByID, journeys, serviceLinks), Quays: quays}, nil
 }
 
 func resolve(
 	now time.Time,
 	stops map[string]Stop,
+	quays map[string]Stop,
 	lineVersions map[string][]xmlLine,
 	routesByID map[string]xmlRoute,
 	patternsByID map[string]xmlServiceJourneyPattern,
-	railJourneys []xmlServiceJourney,
+	journeys []xmlServiceJourney,
 	serviceLinks map[string][][2]float64,
 ) map[string]Line {
 	// Pick, per line id, the version whose validity window covers `now`;
@@ -179,11 +190,11 @@ func resolve(
 		g.variantIDs = append(g.variantIDs, rt.ID)
 	}
 
-	// Rail timetables: for each rail ServiceJourney, resolve its pattern's
+	// Timetables: for each rail/bus ServiceJourney, resolve its pattern's
 	// position->stop map, turn passingTimes into an ordered Departure, and
 	// attach it to the matching Route (by the pattern's RouteRef).
 	departuresByRoute := make(map[string][]Departure)
-	for _, sj := range railJourneys {
+	for _, sj := range journeys {
 		pattern, ok := patternsByID[sj.ServiceJourneyPatternRef.Ref]
 		if !ok {
 			continue
@@ -304,6 +315,27 @@ func buildGeometry(stops []Stop, links map[string][][2]float64) [][2]float64 {
 		}
 	}
 	return geometry
+}
+
+// normalizeQuayID strips the "it:apb:Quay:" wrapper NeTEx puts around the
+// source system's original stop id and trims the trailing colon every id in
+// this export carries — matching SIRI-SX's StopPointRef scheme
+// ("it:22021:2189:0:5133"). Two more quirks in the live export: the wrapper
+// is sometimes applied twice ("it:apb:Quay:it:apb:Quay:<id>::"), so the
+// prefix/suffix are stripped in a loop rather than once; and the wrapped id
+// itself is inconsistently encoded — some use colons throughout like the
+// target scheme already ("it:22021:1853:0:"), others join every field with
+// dashes instead ("it-22021-2189-0-5133:") — converting dashes to colons
+// normalizes both to the same shape.
+func normalizeQuayID(id string) string {
+	for {
+		trimmed := strings.TrimSuffix(strings.TrimPrefix(id, "it:apb:Quay:"), ":")
+		if trimmed == id {
+			break
+		}
+		id = trimmed
+	}
+	return strings.ReplaceAll(id, "-", ":")
 }
 
 // parsePosList reads a GML posList's whitespace-separated "lon lat lon

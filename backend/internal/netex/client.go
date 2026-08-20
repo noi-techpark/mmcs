@@ -23,15 +23,15 @@ func urlPath(day time.Time) string {
 // today and falling back a few days if the day's file isn't published
 // yet (or was skipped), and returns the parsed lines keyed by (colon-
 // trimmed) line id.
-func FetchLatest(now time.Time) (map[string]Line, time.Time, error) {
+func FetchLatest(now time.Time) (Data, time.Time, error) {
 	conn, err := ftp.Dial(ftpHost, ftp.DialWithTimeout(30*time.Second))
 	if err != nil {
-		return nil, time.Time{}, fmt.Errorf("netex: dial: %w", err)
+		return Data{}, time.Time{}, fmt.Errorf("netex: dial: %w", err)
 	}
 	defer conn.Quit()
 
 	if err := conn.Login("anonymous", "anonymous@"); err != nil {
-		return nil, time.Time{}, fmt.Errorf("netex: login: %w", err)
+		return Data{}, time.Time{}, fmt.Errorf("netex: login: %w", err)
 	}
 
 	var lastErr error
@@ -50,20 +50,20 @@ func FetchLatest(now time.Time) (map[string]Line, time.Time, error) {
 			continue
 		}
 
-		lines, err := parseZipBytes(data, now)
+		d, err := parseZipBytes(data, now)
 		if err != nil {
 			lastErr = fmt.Errorf("netex: parse %s: %w", path, err)
 			continue
 		}
-		return lines, day, nil
+		return d, day, nil
 	}
-	return nil, time.Time{}, lastErr
+	return Data{}, time.Time{}, lastErr
 }
 
-func parseZipBytes(data []byte, now time.Time) (map[string]Line, error) {
+func parseZipBytes(data []byte, now time.Time) (Data, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
-		return nil, fmt.Errorf("unzip: %w", err)
+		return Data{}, fmt.Errorf("unzip: %w", err)
 	}
 	var xmlFile *zip.File
 	for _, f := range zr.File {
@@ -73,11 +73,11 @@ func parseZipBytes(data []byte, now time.Time) (map[string]Line, error) {
 		}
 	}
 	if xmlFile == nil {
-		return nil, fmt.Errorf("no .xml entry in zip")
+		return Data{}, fmt.Errorf("no .xml entry in zip")
 	}
 	rc, err := xmlFile.Open()
 	if err != nil {
-		return nil, fmt.Errorf("open xml entry: %w", err)
+		return Data{}, fmt.Errorf("open xml entry: %w", err)
 	}
 	defer rc.Close()
 

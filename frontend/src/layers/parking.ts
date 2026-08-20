@@ -34,7 +34,7 @@ function occupancyPercent(p: { data: Record<string, unknown> }): number | null {
 const PARKING_OCCUPANCY_COLOR_RULES: ColorRule[] = [
   ...Array.from({ length: 100 / BUCKET_STEP + 1 }, (_, i) => i * BUCKET_STEP).map((bucket) => ({
     key: `pct-${bucket}`,
-    color: occupancyColor(bucket),
+    ...occupancyColor(bucket),
     test: (p: { data: Record<string, unknown> }) => {
       const pct = occupancyPercent(p)
       return pct != null && Math.round(pct / BUCKET_STEP) * BUCKET_STEP === bucket

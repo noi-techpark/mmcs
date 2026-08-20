@@ -16,13 +16,13 @@ func Poll(ctx context.Context, store *Store, checkInterval time.Duration) {
 			return
 		}
 		now := time.Now()
-		lines, day, err := FetchLatest(now)
+		data, day, err := FetchLatest(now)
 		if err != nil {
 			log.Printf("netex: fetch failed: %v", err)
 			return
 		}
-		store.Set(lines, now)
-		log.Printf("netex: refreshed from %s export, %d lines", day.Format("2006-01-02"), len(lines))
+		store.Set(data, now)
+		log.Printf("netex: refreshed from %s export, %d lines, %d quays", day.Format("2006-01-02"), len(data.Lines), len(data.Quays))
 	}
 
 	tick()

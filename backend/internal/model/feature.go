@@ -11,6 +11,7 @@ const (
 	LayerECharging Layer = "e_charging"
 	LayerTrainVeh  Layer = "train_vehicle"
 	LayerBusVeh    Layer = "bus_vehicle"
+	LayerBusAlert  Layer = "bus_alert"
 	LayerOnDemand  Layer = "on_demand_vehicle"
 	LayerFlight    Layer = "flight"
 )

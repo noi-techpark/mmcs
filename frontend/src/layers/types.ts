@@ -34,6 +34,8 @@ export interface LayerMountContext {
 export interface ColorRule {
   key: string
   color: string
+  /** Icon opacity for features matching this rule, 0–1. Defaults to 1 (opaque) when omitted — only gradient-based rule sets (parking occupancy, train/bus delay) set this below 1. */
+  opacity?: number
   test: (props: Feature['properties']) => boolean
 }
 
@@ -43,6 +45,8 @@ export interface LabelTarget {
   lngLat: [number, number]
   text: string
   color: string
+  /** Bubble opacity, 0–1 — mirrors the glyph's dynamic-opacity gradient (see pointLayer.ts) so a faded icon gets a faded nameplate too. Defaults to 1. */
+  opacity?: number
   /** The full feature, so clicking the bubble can open the same detail view as clicking the glyph. */
   feature: Feature
 }

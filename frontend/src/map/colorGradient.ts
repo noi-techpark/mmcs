@@ -63,20 +63,43 @@ function mixHue(a: number, b: number, t: number): number {
   return (a + diff * t + 360) % 360
 }
 
+// The "OK" end (pct 0) of a status gradient sits at a muted 50% opacity,
+// so a map full of on-time vehicles / empty lots doesn't visually dominate
+// — then ramps to fully opaque by the time the hue reaches full yellow
+// (mid1, the caller's own green→yellow breakpoint), so any real deviation
+// from OK reads as solid well before it's read as "red". Kept as a
+// separate `opacity` value (not baked into the hex color) so a layer can
+// drive it through MapLibre's icon-opacity paint property — which a "dynamic
+// opacity" toggle can then override back to 1, per layer, at render time.
+const ALPHA_AT_OK = 0.5
+
+function gradientAlpha(pct: number, rampToPct: number): number {
+  const t = Math.min(1, pct / rampToPct)
+  return ALPHA_AT_OK + (1 - ALPHA_AT_OK) * t
+}
+
+export interface GradientColor {
+  color: string
+  opacity: number
+}
+
 /**
  * Same two-segment shape as twoBreakpointGradient, but interpolates hue
  * (shortest path around the wheel) at constant saturation/lightness
  * instead of mixing RGB channels — stays vivid the whole way through
  * instead of dipping through a muddy midpoint. Takes hues in degrees for
  * the three stops, sharing one s/l (see PALETTE_SATURATION/LIGHTNESS).
+ * Also carries the shared OK→opaque alpha ramp (see gradientAlpha) — every
+ * caller of this gradient is a "how far from OK" status scale, so the
+ * opacity behavior belongs here rather than duplicated per caller.
  */
 export function twoBreakpointHueGradient(hueA: number, hueB: number, hueC: number, mid1: number, mid2: number, s: number, l: number) {
-  return (pct: number): string => {
+  return (pct: number): GradientColor => {
     const clamped = Math.min(100, Math.max(0, pct))
     const hue =
       clamped <= mid1 ? mixHue(hueA, hueB, clamped / mid1) :
       clamped < mid2 ? mixHue(hueB, hueC, (clamped - mid1) / (mid2 - mid1)) :
       hueC
-    return hslToHex(hue, s, l)
+    return { color: hslToHex(hue, s, l), opacity: gradientAlpha(clamped, mid1) }
   }
 }

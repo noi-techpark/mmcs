@@ -6,3 +6,12 @@ html, body, #root {
 body {
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
+
+/* Vehicle hover tooltips (layers/pointLayer.ts) must render above the
+   custom SVG label-bubble overlay (map/MapView.tsx) — that overlay is a
+   later DOM sibling of the map container the popup lives inside, so
+   without an explicit z-index it would paint over the popup despite the
+   popup being "on top" from the user's point of view. */
+.maplibregl-popup {
+  z-index: 1000;
+}

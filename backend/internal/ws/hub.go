@@ -18,6 +18,8 @@ var activeLayers = []model.Layer{
 	model.LayerParking,
 	model.LayerECharging,
 	model.LayerTrainVeh,
+	model.LayerBusVeh,
+	model.LayerBusAlert,
 	model.LayerFlight,
 }
 

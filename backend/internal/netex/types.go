@@ -57,6 +57,14 @@ type Line struct {
 	Routes        []Route `json:"routes"`
 }
 
+// Data is Parse's result: every Line keyed by (colon-trimmed) NeTEx id,
+// plus the Quay coordinates SIRI-SX situations resolve their affected
+// stops against (see Store.Quay).
+type Data struct {
+	Lines map[string]Line
+	Quays map[string]Stop
+}
+
 // Journey is a single scheduled trip resolved end-to-end: the specific
 // Departure a live vehicle is running, together with its route's stop
 // list/geometry and enough Line context for a detail view. This is what

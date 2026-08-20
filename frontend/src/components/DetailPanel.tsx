@@ -1,17 +1,19 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { STATUS_COLORS, STATUS_LABELS } from '../map/colors'
 import { LAYER_DEFINITIONS } from '../layers/definitions'
 import { LayerIcon } from './LayerIcon'
 import { relativeTime } from '../util/time'
 import { nearestSegmentIndex, type LonLat } from '../util/geo'
 import type { Feature } from '../types/feature'
-import type { Journey } from '../types/line'
+import type { Journey, EstimatedTimetable } from '../types/line'
 
 interface DetailPanelProps {
   feature: Feature
   journey: Journey | null
   /** True while /api/journey is in flight for the current selection — distinct from journey===null, which also means "no matching journey found". */
   journeyLoading: boolean
+  estimatedTimetable: EstimatedTimetable | null
+  etLoading: boolean
   onClose: () => void
 }
 
@@ -24,6 +26,39 @@ function LiveDivider({ label }: { label: string }) {
       <span style={{ flex: 1, height: 1.5, background: LIVE_COLOR }} />
       <span style={{ fontSize: 10, color: LIVE_COLOR, fontWeight: 700, letterSpacing: 0.3, flexShrink: 0 }}>{label}</span>
       <span style={{ flex: 1, height: 1.5, background: LIVE_COLOR }} />
+    </div>
+  )
+}
+
+/** A clickable section label toggling its own collapsed state, with a chevron indicating which way. */
+function SectionHeader({ title, collapsed, onToggle }: { title: string; collapsed: boolean; onToggle: () => void }) {
+  return (
+    <div
+      onClick={onToggle}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onToggle()
+        }
+      }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 6,
+        cursor: 'pointer',
+        userSelect: 'none',
+        fontSize: 12,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        color: '#9a9ea5',
+        marginBottom: collapsed ? 0 : 6,
+      }}
+    >
+      {title}
+      <span style={{ fontSize: 9, transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.15s' }}>▾</span>
     </div>
   )
 }
@@ -56,11 +91,11 @@ function liveSegment(journey: Journey, liveCoords: LonLat | null): number | null
   return nearestSegmentIndex(liveCoords, path)
 }
 
-function JourneyStops({ journey, liveCoords }: { journey: Journey; liveCoords: LonLat | null }) {
+function JourneyStops({ journey, liveCoords, hereLabel }: { journey: Journey; liveCoords: LonLat | null; hereLabel: string }) {
   const { stops } = journey.departure
   const segmentIdx = liveSegment(journey, liveCoords)
   return (
-    <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+    <div style={{ flex: 1, minHeight: 120, overflowY: 'auto' }}>
       {stops.map((s, i) => (
         <Fragment key={s.stopId}>
           <div
@@ -78,9 +113,54 @@ function JourneyStops({ journey, liveCoords }: { journey: Journey; liveCoords: L
               {formatStopTime(s.arrival, s.departure)}
             </span>
           </div>
-          {segmentIdx === i && <LiveDivider label="TRAIN IS HERE" />}
+          {segmentIdx === i && <LiveDivider label={hereLabel} />}
         </Fragment>
       ))}
+    </div>
+  )
+}
+
+/** hh:mm from a SIRI-ET timestamp, aimed vs. expected differing by more than a minute reads as a delay. */
+function formatEstimatedTime(aimed?: string, expected?: string): { text: string; delayed: boolean } {
+  const time = (expected || aimed)?.slice(11, 16)
+  if (!time) return { text: '—', delayed: false }
+  const delayed = !!aimed && !!expected && aimed.slice(0, 16) !== expected.slice(0, 16)
+  return { text: time, delayed }
+}
+
+function EstimatedCalls({ timetable }: { timetable: EstimatedTimetable }) {
+  const calls = timetable.EstimatedCalls.EstimatedCall
+  return (
+    <div style={{ flex: 1, minHeight: 120, overflowY: 'auto' }}>
+      {calls.map((c, i) => {
+        const arr = formatEstimatedTime(c.AimedArrivalTime, c.ExpectedArrivalTime)
+        const dep = formatEstimatedTime(c.AimedDepartureTime, c.ExpectedDepartureTime)
+        const timing = dep.text !== '—' ? dep : arr
+        return (
+          <div
+            key={`${c.StopPointRef}-${i}`}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 10,
+              fontSize: 12.5,
+              padding: '4px 0',
+              borderBottom: i < calls.length - 1 ? '1px solid #2f3237' : 'none',
+            }}
+          >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.StopPointName}</span>
+            <span
+              style={{
+                color: timing.delayed ? STATUS_COLORS.warning : '#9a9ea5',
+                flexShrink: 0,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {timing.text}
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -184,15 +264,63 @@ function FlightsList({ flights }: { flights: FlightEntry[] }) {
   )
 }
 
-export function DetailPanel({ feature, journey, journeyLoading, onClose }: DetailPanelProps) {
+function isSituation(layer: string, data: Record<string, unknown>): boolean {
+  return layer === 'bus_alert' && Array.isArray(data.affectedStops)
+}
+
+function SituationDetail({ data }: { data: Record<string, unknown> }) {
+  const affectedStops = Array.isArray(data.affectedStops) ? (data.affectedStops as string[]) : []
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+        {typeof data.alertCause === 'string' && data.alertCause && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
+            <span style={{ color: '#9a9ea5' }}>Cause</span>
+            <span style={{ textAlign: 'right' }}>{formatValue(data.alertCause)}</span>
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
+          <span style={{ color: '#9a9ea5' }}>Status</span>
+          <span style={{ textAlign: 'right' }}>{formatValue(data.progress)}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
+          <span style={{ color: '#9a9ea5' }}>Valid</span>
+          <span style={{ textAlign: 'right' }}>
+            {typeof data.validFrom === 'string' ? data.validFrom.slice(0, 10) : '—'}
+            {' – '}
+            {typeof data.validTo === 'string' ? data.validTo.slice(0, 10) : '—'}
+          </span>
+        </div>
+      </div>
+      {affectedStops.length > 0 && (
+        <div style={{ borderTop: '1px solid #2f3237', paddingTop: 10 }}>
+          <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#9a9ea5', marginBottom: 6 }}>
+            Affected stops
+          </div>
+          <div style={{ fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {affectedStops.map((s, i) => (
+              <div key={i}>{s}</div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+export function DetailPanel({ feature, journey, journeyLoading, estimatedTimetable, etLoading, onClose }: DetailPanelProps) {
   const props = feature.properties
   const layerDef = LAYER_DEFINITIONS.find((d) => d.id === props.layer)
   const status = props.status ?? 'unknown'
+  const situation = isSituation(props.layer, props.data)
+  const [routeCollapsed, setRouteCollapsed] = useState(false)
+  const [etCollapsed, setEtCollapsed] = useState(false)
 
-  const dataEntries = Object.entries(props.data).filter(([key]) => key !== 'flights')
+  const dataEntries = situation ? [] : Object.entries(props.data).filter(([key]) => key !== 'flights')
   const statusValue = statusValueText(props.layer, props.data)
   const flights = isFlightList(props.data.flights) ? props.data.flights : null
-  const showRoute = props.layer === 'train_vehicle' && props.ref?.lineId
+  const showRoute = (props.layer === 'train_vehicle' || props.layer === 'bus_vehicle') && props.ref?.lineId
+  const showEstimatedTimetable = props.layer === 'bus_vehicle'
   const liveCoords: LonLat | null =
     feature.geometry.type === 'Point' && feature.geometry.coordinates.length === 2
       ? (feature.geometry.coordinates as LonLat)
@@ -202,44 +330,47 @@ export function DetailPanel({ feature, journey, journeyLoading, onClose }: Detai
     <div
       style={{
         position: 'absolute',
-        top: 12,
-        right: 12,
+        top: 0,
+        right: 0,
+        bottom: 0,
         width: 300,
-        maxHeight: 'calc(100% - 24px)',
-        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
         background: '#1c1e22',
         color: '#e8e8e8',
-        borderRadius: 10,
-        boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
+        boxShadow: '-4px 0 20px rgba(0,0,0,0.35)',
         fontFamily: 'sans-serif',
         zIndex: 2,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '14px 14px 10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#9a9ea5', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          <LayerIcon layer={props.layer} />
-          {layerDef?.label ?? props.layer}
+      {/* Header (layer label, close button, name) is fixed — flexShrink: 0
+          keeps it out of the scrolling body below regardless of content length. */}
+      <div style={{ flexShrink: 0, borderBottom: '1px solid #2f3237' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '14px 14px 10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#9a9ea5', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            <LayerIcon layer={props.layer} />
+            {layerDef?.label ?? props.layer}
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#9a9ea5',
+              cursor: 'pointer',
+              fontSize: 16,
+              lineHeight: 1,
+              padding: 2,
+            }}
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#9a9ea5',
-            cursor: 'pointer',
-            fontSize: 16,
-            lineHeight: 1,
-            padding: 2,
-          }}
-          aria-label="Close"
-        >
-          ✕
-        </button>
+        <div style={{ fontSize: 16, fontWeight: 700, padding: '0 14px 12px' }}>{props.name || 'Unnamed'}</div>
       </div>
 
-      <div style={{ padding: '0 14px 14px' }}>
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{props.name || 'Unnamed'}</div>
-
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, marginBottom: 10 }}>
           <span
             style={{
@@ -268,6 +399,8 @@ export function DetailPanel({ feature, journey, journeyLoading, onClose }: Detai
           ))}
         </div>
 
+        {situation && <SituationDetail data={props.data} />}
+
         {flights && (
           <div style={{ borderTop: '1px solid #2f3237', marginTop: 10, paddingTop: 10 }}>
             <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#9a9ea5', marginBottom: 6 }}>
@@ -277,29 +410,72 @@ export function DetailPanel({ feature, journey, journeyLoading, onClose }: Detai
           </div>
         )}
 
+        {/* Live ET, when available, is more useful than the static schedule
+            it's paired with — shown first rather than after it. */}
+        {showEstimatedTimetable && estimatedTimetable && !etLoading && (
+          <div
+            style={{
+              borderTop: '1px solid #2f3237',
+              marginTop: 10,
+              paddingTop: 10,
+              ...(etCollapsed ? {} : { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }),
+            }}
+          >
+            <SectionHeader title="Live ETA (SIRI-ET)" collapsed={etCollapsed} onToggle={() => setEtCollapsed((c) => !c)} />
+            {!etCollapsed && <EstimatedCalls timetable={estimatedTimetable} />}
+          </div>
+        )}
+
         {showRoute && (
+          <div
+            style={{
+              borderTop: '1px solid #2f3237',
+              marginTop: 10,
+              paddingTop: 10,
+              ...(journey && !routeCollapsed ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : {}),
+            }}
+          >
+            <SectionHeader title="Route" collapsed={routeCollapsed} onToggle={() => setRouteCollapsed((c) => !c)} />
+            {!routeCollapsed && (
+              <>
+                {journeyLoading && <div style={{ fontSize: 12.5, color: '#9a9ea5' }}>Loading route…</div>}
+                {!journeyLoading && !journey && (
+                  <div style={{ fontSize: 12.5, color: '#9a9ea5' }}>No scheduled journey found matching this vehicle.</div>
+                )}
+                {!journeyLoading && journey && (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>
+                      {journey.lineName}
+                      {journey.shortName && journey.shortName !== journey.lineName ? ` (${journey.shortName})` : ''}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#9a9ea5', marginBottom: 8 }}>
+                      {journey.transportMode} · line {journey.publicCode || journey.lineId}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#9a9ea5', marginBottom: 6 }}>
+                      Scheduled {journey.departure.departureTime.slice(0, 5)} · {journey.stops.length} stops
+                    </div>
+                    <JourneyStops
+                      journey={journey}
+                      liveCoords={liveCoords}
+                      hereLabel={props.layer === 'bus_vehicle' ? 'BUS IS HERE' : 'TRAIN IS HERE'}
+                    />
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ET section for the loading/not-found states — kept after Route
+            since only a confirmed ET result earns the "show first" spot above. */}
+        {showEstimatedTimetable && (etLoading || !estimatedTimetable) && (
           <div style={{ borderTop: '1px solid #2f3237', marginTop: 10, paddingTop: 10 }}>
             <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#9a9ea5', marginBottom: 6 }}>
-              Route
+              Live ETA (SIRI-ET)
             </div>
-            {journeyLoading && <div style={{ fontSize: 12.5, color: '#9a9ea5' }}>Loading route…</div>}
-            {!journeyLoading && !journey && (
-              <div style={{ fontSize: 12.5, color: '#9a9ea5' }}>No scheduled journey found matching this vehicle.</div>
-            )}
-            {!journeyLoading && journey && (
-              <>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>
-                  {journey.lineName}
-                  {journey.shortName && journey.shortName !== journey.lineName ? ` (${journey.shortName})` : ''}
-                </div>
-                <div style={{ fontSize: 12, color: '#9a9ea5', marginBottom: 8 }}>
-                  {journey.transportMode} · line {journey.publicCode || journey.lineId}
-                </div>
-                <div style={{ fontSize: 12, color: '#9a9ea5', marginBottom: 6 }}>
-                  Scheduled {journey.departure.departureTime.slice(0, 5)} · {journey.stops.length} stops
-                </div>
-                <JourneyStops journey={journey} liveCoords={liveCoords} />
-              </>
+            {etLoading && <div style={{ fontSize: 12.5, color: '#9a9ea5' }}>Loading ETA…</div>}
+            {!etLoading && !estimatedTimetable && (
+              <div style={{ fontSize: 12.5, color: '#9a9ea5' }}>No estimated timetable found for this trip.</div>
             )}
           </div>
         )}

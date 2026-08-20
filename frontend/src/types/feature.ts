@@ -1,6 +1,13 @@
 // Mirrors backend/internal/model/feature.go — the common Feature shape.
 
-export type Layer = 'parking' | 'e_charging' | 'train_vehicle' | 'bus_vehicle' | 'on_demand_vehicle' | 'flight'
+export type Layer =
+  | 'parking'
+  | 'e_charging'
+  | 'train_vehicle'
+  | 'bus_vehicle'
+  | 'bus_alert'
+  | 'on_demand_vehicle'
+  | 'flight'
 
 export type Status = 'ok' | 'warning' | 'critical' | 'unknown'
 

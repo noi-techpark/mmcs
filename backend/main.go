@@ -58,6 +58,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/layers/", api.SnapshotHandler(fs))
 	mux.HandleFunc("/api/lines/", api.LineHandler(netexStore))
+	mux.HandleFunc("/api/journey", api.JourneyHandler(netexStore))
 	mux.HandleFunc("/ws", ws.Handler(fs))
 
 	frontendDir := "./static"

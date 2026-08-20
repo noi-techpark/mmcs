@@ -64,6 +64,19 @@ type xmlTimetabledPassingTime struct {
 	DepartureTime                string `xml:"DepartureTime"`
 }
 
+// xmlServiceLink is the actual road/rail-following geometry between two
+// adjacent stops, as opposed to Route/PointOnRoute which only give the
+// stop sequence. gml: is an unprefixed match in Go's encoding/xml (it
+// matches by local name, not namespace), same as every other element here.
+type xmlServiceLink struct {
+	ID           string `xml:"id,attr"`
+	FromPointRef xmlRef `xml:"FromPointRef"`
+	ToPointRef   xmlRef `xml:"ToPointRef"`
+	LineString   struct {
+		PosList string `xml:"posList"`
+	} `xml:"LineString"`
+}
+
 type xmlServiceJourney struct {
 	ID            string `xml:"id,attr"`
 	TransportMode string `xml:"TransportMode"`

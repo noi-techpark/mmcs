@@ -6,7 +6,7 @@ import { LAYER_DEFINITIONS } from '../layers/definitions'
 import { computePlacements, edgePoint, type Placement } from './labelPlacement'
 import type { LayerOptions } from '../layers/types'
 import type { Feature, Layer } from '../types/feature'
-import type { RouteDetail } from '../types/line'
+import type { Journey } from '../types/line'
 
 const SELECTED_ROUTE_SOURCE = 'selected-route'
 const SELECTED_ROUTE_LAYER = 'selected-route-line'
@@ -34,11 +34,11 @@ interface MapViewProps {
   layerOptions: Record<Layer, LayerOptions>
   layerOrder: Layer[]
   onFeatureSelect: (feature: Feature) => void
-  /** The specific route of the currently-selected train's actual journey (not the whole line) — see util/journey.ts. */
-  selectedRoute: RouteDetail | null
+  /** The currently-selected train's actual journey (not the whole line) — resolved server-side, see /api/journey. */
+  selectedJourney: Journey | null
 }
 
-export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSelect, selectedRoute }: MapViewProps) {
+export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSelect, selectedJourney }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const layers = useFeatureStore((s) => s.layers)
@@ -152,26 +152,25 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
   }, [layerOrder, mapReady])
 
   // Selected train's actual route (its specific journey, not the whole
-  // line — see util/journey.ts), drawn as a straight-line polyline between
-  // consecutive stops (NeTEx gives us the ordered stop sequence directly;
-  // the actual road/rail-following geometry would need assembling
-  // ServiceLink segments, out of scope here).
+  // line) — the real road/rail-following polyline resolved server-side
+  // from NeTEx ServiceLinks (see backend/internal/netex/parse.go
+  // buildGeometry), not a straight line between stops.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !mapReady) return
     const source = map.getSource(SELECTED_ROUTE_SOURCE) as maplibregl.GeoJSONSource | undefined
     if (!source) return
-    const features = selectedRoute
+    const features = selectedJourney
       ? [
           {
             type: 'Feature' as const,
-            properties: { directionRef: selectedRoute.directionRef ?? '' },
-            geometry: { type: 'LineString' as const, coordinates: selectedRoute.stops.map((s) => [s.lon, s.lat]) },
+            properties: { directionRef: selectedJourney.directionRef ?? '' },
+            geometry: { type: 'LineString' as const, coordinates: selectedJourney.geometry },
           },
         ]
       : []
     source.setData({ type: 'FeatureCollection', features })
-  }, [selectedRoute, mapReady])
+  }, [selectedJourney, mapReady])
 
   // Name-label placement: recompute whenever the map settles after a
   // camera move or a data/paint update ('idle' covers both), and

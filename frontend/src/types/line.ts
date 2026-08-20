@@ -1,6 +1,8 @@
-// Mirrors backend/internal/netex/types.go — NeTEx reference data for a
-// line, fetched on demand from /api/lines/:id (not pushed over the
-// realtime WS like Feature data — this is static schedule reference data).
+// Mirrors backend/internal/netex/types.go's Journey — the specific
+// scheduled trip a live vehicle is running, fetched on demand from
+// /api/journey (not pushed over the realtime WS like Feature data, since
+// it's static NeTEx schedule reference data). The backend does the
+// vehicle-to-Departure matching; the frontend just requests the result.
 
 export interface Stop {
   id: string
@@ -24,18 +26,15 @@ export interface Departure {
   stops: PassingTime[]
 }
 
-export interface RouteDetail {
-  id: string
-  directionRef?: string
-  stops: Stop[]
-  timetable: Departure[]
-}
-
-export interface LineDetail {
-  id: string
-  name: string
+export interface Journey {
+  lineId: string
+  lineName: string
   shortName?: string
   publicCode?: string
   transportMode: string
-  routes: RouteDetail[]
+  directionRef?: string
+  stops: Stop[]
+  /** The route's actual road/rail-following polyline (NeTEx ServiceLinks where available), as [lon, lat] pairs. */
+  geometry: [number, number][]
+  departure: Departure
 }

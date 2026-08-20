@@ -4,14 +4,14 @@ import { LAYER_DEFINITIONS } from '../layers/definitions'
 import { LayerIcon } from './LayerIcon'
 import { relativeTime } from '../util/time'
 import { nearestSegmentIndex, type LonLat } from '../util/geo'
-import type { Journey } from '../util/journey'
 import type { Feature } from '../types/feature'
-import type { LineDetail } from '../types/line'
+import type { Journey } from '../types/line'
 
 interface DetailPanelProps {
   feature: Feature
-  lineDetail: LineDetail | null
   journey: Journey | null
+  /** True while /api/journey is in flight for the current selection — distinct from journey===null, which also means "no matching journey found". */
+  journeyLoading: boolean
   onClose: () => void
 }
 
@@ -45,8 +45,8 @@ function liveSegment(journey: Journey, liveCoords: LonLat | null): number | null
   // platform/direction for the same physical station). Station names are
   // consistent across variants, so fall back to a name match when the id
   // lookup misses.
-  const stopById = new Map(journey.route.stops.map((s) => [s.id, s]))
-  const stopByName = new Map(journey.route.stops.map((s) => [s.name.trim().toLowerCase(), s]))
+  const stopById = new Map(journey.stops.map((s) => [s.id, s]))
+  const stopByName = new Map(journey.stops.map((s) => [s.name.trim().toLowerCase(), s]))
   const path: LonLat[] = []
   for (const s of journey.departure.stops) {
     const stop = stopById.get(s.stopId) ?? stopByName.get(s.stopName.trim().toLowerCase())
@@ -184,7 +184,7 @@ function FlightsList({ flights }: { flights: FlightEntry[] }) {
   )
 }
 
-export function DetailPanel({ feature, lineDetail, journey, onClose }: DetailPanelProps) {
+export function DetailPanel({ feature, journey, journeyLoading, onClose }: DetailPanelProps) {
   const props = feature.properties
   const layerDef = LAYER_DEFINITIONS.find((d) => d.id === props.layer)
   const status = props.status ?? 'unknown'
@@ -282,28 +282,23 @@ export function DetailPanel({ feature, lineDetail, journey, onClose }: DetailPan
             <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#9a9ea5', marginBottom: 6 }}>
               Route
             </div>
-            {!lineDetail && <div style={{ fontSize: 12.5, color: '#9a9ea5' }}>Loading route…</div>}
-            {lineDetail && (
+            {journeyLoading && <div style={{ fontSize: 12.5, color: '#9a9ea5' }}>Loading route…</div>}
+            {!journeyLoading && !journey && (
+              <div style={{ fontSize: 12.5, color: '#9a9ea5' }}>No scheduled journey found matching this vehicle.</div>
+            )}
+            {!journeyLoading && journey && (
               <>
                 <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>
-                  {lineDetail.name}
-                  {lineDetail.shortName && lineDetail.shortName !== lineDetail.name ? ` (${lineDetail.shortName})` : ''}
+                  {journey.lineName}
+                  {journey.shortName && journey.shortName !== journey.lineName ? ` (${journey.shortName})` : ''}
                 </div>
                 <div style={{ fontSize: 12, color: '#9a9ea5', marginBottom: 8 }}>
-                  {lineDetail.transportMode} · line {lineDetail.publicCode || lineDetail.id}
+                  {journey.transportMode} · line {journey.publicCode || journey.lineId}
                 </div>
-                {journey ? (
-                  <>
-                    <div style={{ fontSize: 12, color: '#9a9ea5', marginBottom: 6 }}>
-                      Scheduled {journey.departure.departureTime.slice(0, 5)} · {journey.route.stops.length} stops
-                    </div>
-                    <JourneyStops journey={journey} liveCoords={liveCoords} />
-                  </>
-                ) : (
-                  <div style={{ fontSize: 12.5, color: '#9a9ea5' }}>
-                    No scheduled journey found matching this vehicle.
-                  </div>
-                )}
+                <div style={{ fontSize: 12, color: '#9a9ea5', marginBottom: 6 }}>
+                  Scheduled {journey.departure.departureTime.slice(0, 5)} · {journey.stops.length} stops
+                </div>
+                <JourneyStops journey={journey} liveCoords={liveCoords} />
               </>
             )}
           </div>

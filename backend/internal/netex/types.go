@@ -34,15 +34,17 @@ type Departure struct {
 }
 
 // Route is one directional variant of a Line: its ordered stop sequence
-// (used both for the stop list and, by connecting consecutive stops'
-// coordinates, a simple straight-line route polygon — not the actual
-// road/rail-following geometry NeTEx ServiceLinks would give, but a
-// reasonable approximation for this scope) plus its timetable.
+// plus its timetable. Geometry is the actual road/rail-following polyline
+// for the whole route — each consecutive stop pair's NeTEx ServiceLink
+// where the export has one, else a straight line between them (see
+// buildGeometry in parse.go) — as opposed to Stops, which is just the
+// ordered stop sequence with no path detail between them.
 type Route struct {
-	ID           string      `json:"id"`
-	DirectionRef string      `json:"directionRef,omitempty"`
-	Stops        []Stop      `json:"stops"`
-	Timetable    []Departure `json:"timetable"`
+	ID           string       `json:"id"`
+	DirectionRef string       `json:"directionRef,omitempty"`
+	Stops        []Stop       `json:"stops"`
+	Geometry     [][2]float64 `json:"geometry"`
+	Timetable    []Departure  `json:"timetable"`
 }
 
 // Line is the top-level entity looked up by id (SIRI's LineRef).
@@ -53,4 +55,22 @@ type Line struct {
 	PublicCode    string  `json:"publicCode,omitempty"`
 	TransportMode string  `json:"transportMode"`
 	Routes        []Route `json:"routes"`
+}
+
+// Journey is a single scheduled trip resolved end-to-end: the specific
+// Departure a live vehicle is running, together with its route's stop
+// list/geometry and enough Line context for a detail view. This is what
+// /api/journey returns, so the frontend can request a live vehicle's
+// route and timetable directly instead of fetching the whole Line and
+// matching the vehicle to a Departure itself.
+type Journey struct {
+	LineID        string       `json:"lineId"`
+	LineName      string       `json:"lineName"`
+	ShortName     string       `json:"shortName,omitempty"`
+	PublicCode    string       `json:"publicCode,omitempty"`
+	TransportMode string       `json:"transportMode"`
+	DirectionRef  string       `json:"directionRef,omitempty"`
+	Stops         []Stop       `json:"stops"`
+	Geometry      [][2]float64 `json:"geometry"`
+	Departure     Departure    `json:"departure"`
 }

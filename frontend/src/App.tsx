@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MapView } from './map/MapView'
 import { Sidebar } from './components/Sidebar'
 import { DetailPanel } from './components/DetailPanel'
 import { LAYER_DEFINITIONS } from './layers/definitions'
-import { findJourney } from './util/journey'
 import type { LayerOptions } from './layers/types'
 import type { Feature, Layer } from './types/feature'
-import type { LineDetail } from './types/line'
+import type { Journey } from './types/line'
 
 function App() {
   const [visibleLayers, setVisibleLayers] = useState<Set<Layer>>(
@@ -20,36 +19,43 @@ function App() {
   // (LAYER_DEFINITIONS); dragging a card in the sidebar reorders this.
   const [layerOrder, setLayerOrder] = useState<Layer[]>(LAYER_DEFINITIONS.map((d) => d.id))
   const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null)
-  const [lineDetail, setLineDetail] = useState<LineDetail | null>(null)
+  const [journey, setJourney] = useState<Journey | null>(null)
+  const [journeyLoading, setJourneyLoading] = useState(false)
 
-  // NeTEx line/route/timetable reference detail is fetched on demand
-  // (not pushed like Feature data) — only when a train with a lineId is
-  // selected. Held here, not in DetailPanel, so MapView can also draw the
-  // route polygon without a second fetch.
+  // The specific scheduled trip a selected train is running — fetched on
+  // demand (not pushed like Feature data) — only when a train with a
+  // lineId is selected. Held here, not in DetailPanel, so MapView can also
+  // draw the route without a second fetch. The backend does the
+  // vehicle-to-Departure matching (see /api/journey); this just requests
+  // the result for the currently selected vehicle.
   useEffect(() => {
     const lineId = selectedFeature?.properties.layer === 'train_vehicle' ? selectedFeature.properties.ref?.lineId : undefined
-    if (!lineId) {
-      setLineDetail(null)
+    const vehicleRef = selectedFeature?.properties.data.vehicleRef
+    if (!lineId || typeof vehicleRef !== 'string' || !vehicleRef) {
+      setJourney(null)
+      setJourneyLoading(false)
       return
     }
     let cancelled = false
-    fetch(`/api/lines/${encodeURIComponent(lineId)}`)
+    setJourneyLoading(true)
+    fetch(`/api/journey?lineId=${encodeURIComponent(lineId)}&vehicleRef=${encodeURIComponent(vehicleRef)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!cancelled) setLineDetail(data)
+        if (!cancelled) {
+          setJourney(data)
+          setJourneyLoading(false)
+        }
       })
       .catch(() => {
-        if (!cancelled) setLineDetail(null)
+        if (!cancelled) {
+          setJourney(null)
+          setJourneyLoading(false)
+        }
       })
     return () => {
       cancelled = true
     }
   }, [selectedFeature])
-
-  const journey = useMemo(
-    () => findJourney(lineDetail, selectedFeature?.properties.data.vehicleRef),
-    [lineDetail, selectedFeature],
-  )
 
   const toggle = (layer: Layer) => {
     setVisibleLayers((prev) => {
@@ -80,13 +86,13 @@ function App() {
           layerOptions={layerOptions}
           layerOrder={layerOrder}
           onFeatureSelect={setSelectedFeature}
-          selectedRoute={journey?.route ?? null}
+          selectedJourney={journey}
         />
         {selectedFeature && (
           <DetailPanel
             feature={selectedFeature}
-            lineDetail={lineDetail}
             journey={journey}
+            journeyLoading={journeyLoading}
             onClose={() => setSelectedFeature(null)}
           />
         )}

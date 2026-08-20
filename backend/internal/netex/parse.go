@@ -21,6 +21,12 @@ func Parse(r io.Reader, now time.Time) (map[string]Line, error) {
 	lineVersions := make(map[string][]xmlLine)
 	routesByID := make(map[string]xmlRoute)
 	patternsByID := make(map[string]xmlServiceJourneyPattern)
+	// Keyed "fromStopID|toStopID", the ordered [lon,lat] points of that
+	// stop-pair's real road/rail-following path — see buildGeometry. The
+	// export carries a handful of duplicate stop-pairs (same versioning
+	// churn as elsewhere in this feed); first one wins, since alternate
+	// versions of the same physical link are geometrically near-identical.
+	serviceLinks := make(map[string][][2]float64)
 	var railJourneys []xmlServiceJourney
 
 	dec := xml.NewDecoder(r)
@@ -55,6 +61,15 @@ func Parse(r io.Reader, now time.Time) (map[string]Line, error) {
 				return nil, err
 			}
 			routesByID[rt.ID] = rt
+		case "ServiceLink":
+			var sl xmlServiceLink
+			if err := dec.DecodeElement(&sl, &se); err != nil {
+				return nil, err
+			}
+			key := sl.FromPointRef.Ref + "|" + sl.ToPointRef.Ref
+			if _, exists := serviceLinks[key]; !exists {
+				serviceLinks[key] = parsePosList(sl.LineString.PosList)
+			}
 		case "ServiceJourneyPattern":
 			var p xmlServiceJourneyPattern
 			if err := dec.DecodeElement(&p, &se); err != nil {
@@ -72,7 +87,7 @@ func Parse(r io.Reader, now time.Time) (map[string]Line, error) {
 		}
 	}
 
-	return resolve(now, stops, lineVersions, routesByID, patternsByID, railJourneys), nil
+	return resolve(now, stops, lineVersions, routesByID, patternsByID, railJourneys, serviceLinks), nil
 }
 
 func resolve(
@@ -82,6 +97,7 @@ func resolve(
 	routesByID map[string]xmlRoute,
 	patternsByID map[string]xmlServiceJourneyPattern,
 	railJourneys []xmlServiceJourney,
+	serviceLinks map[string][][2]float64,
 ) map[string]Line {
 	// Pick, per line id, the version whose validity window covers `now`;
 	// fall back to the highest version number if none does (e.g. right at
@@ -248,6 +264,7 @@ func resolve(
 		}
 		sort.Slice(deps, func(i, j int) bool { return deps[i].DepartureTime < deps[j].DepartureTime })
 		g.route.Timetable = deps
+		g.route.Geometry = buildGeometry(g.route.Stops, serviceLinks)
 		routesByLine[key.lineID] = append(routesByLine[key.lineID], g.route)
 	}
 	for lineID, routes := range routesByLine {
@@ -258,6 +275,51 @@ func resolve(
 	}
 
 	return lines
+}
+
+// buildGeometry walks a route's ordered stops and, for each consecutive
+// pair, appends its real NeTEx ServiceLink polyline (looked up in either
+// direction, since a link is only stored once per physical pair but a
+// route can traverse it either way) — falling back to a straight line
+// straight to the next stop where the export has no link for that pair.
+// Concatenated, this gives the route's actual road/rail-following shape
+// rather than a straight-line approximation between stops.
+func buildGeometry(stops []Stop, links map[string][][2]float64) [][2]float64 {
+	if len(stops) == 0 {
+		return nil
+	}
+	geometry := [][2]float64{{stops[0].Lon, stops[0].Lat}}
+	for i := 0; i+1 < len(stops); i++ {
+		a, b := stops[i], stops[i+1]
+		switch {
+		case links[a.ID+"|"+b.ID] != nil:
+			geometry = append(geometry, links[a.ID+"|"+b.ID]...)
+		case links[b.ID+"|"+a.ID] != nil:
+			seg := links[b.ID+"|"+a.ID]
+			for j := len(seg) - 1; j >= 0; j-- {
+				geometry = append(geometry, seg[j])
+			}
+		default:
+			geometry = append(geometry, [2]float64{b.Lon, b.Lat})
+		}
+	}
+	return geometry
+}
+
+// parsePosList reads a GML posList's whitespace-separated "lon lat lon
+// lat ..." coordinate string.
+func parsePosList(s string) [][2]float64 {
+	fields := strings.Fields(s)
+	coords := make([][2]float64, 0, len(fields)/2)
+	for i := 0; i+1 < len(fields); i += 2 {
+		lon, err1 := strconv.ParseFloat(fields[i], 64)
+		lat, err2 := strconv.ParseFloat(fields[i+1], 64)
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		coords = append(coords, [2]float64{lon, lat})
+	}
+	return coords
 }
 
 func coversNow(l xmlLine, now time.Time) bool {

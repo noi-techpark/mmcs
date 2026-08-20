@@ -43,3 +43,26 @@ func LineHandler(ns *netex.Store) http.HandlerFunc {
 		json.NewEncoder(w).Encode(line)
 	}
 }
+
+// JourneyHandler serves GET /api/journey?lineId=...&vehicleRef=... — the
+// specific scheduled trip a live vehicle is running (route stops,
+// geometry, and timetable), resolved server-side so the frontend can
+// request it directly instead of fetching the whole line and matching
+// the vehicle to a Departure itself.
+func JourneyHandler(ns *netex.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		lineID := r.URL.Query().Get("lineId")
+		vehicleRef := r.URL.Query().Get("vehicleRef")
+		if lineID == "" || vehicleRef == "" {
+			http.Error(w, "missing lineId or vehicleRef", http.StatusBadRequest)
+			return
+		}
+		journey, ok := ns.FindJourney(lineID, vehicleRef)
+		if !ok {
+			http.Error(w, "journey not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(journey)
+	}
+}

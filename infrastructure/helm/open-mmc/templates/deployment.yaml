@@ -42,6 +42,13 @@ spec:
             - name: {{ $k }}
               value: {{ $v | quote }}
           {{- end }}
+          {{- range $k, $v := .Values.secretEnv }}
+            - name: {{ $k }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "open-mmc.fullname" $ }}
+                  key: {{ $k }}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}

@@ -42,3 +42,9 @@ affinity: {}
 # Extra environment variables for the container, on top of ADDR (which is
 # always set from service.port). See backend/main.go for what it reads.
 env: {}
+
+# Same as env, but rendered into a Kubernetes Secret and consumed via
+# secretKeyRef instead of a plain value — for anything sensitive (e.g.
+# ODH_CLIENT_SECRET). CI sets these at deploy time; see
+# .github/workflows/main.yml and infrastructure/helm/test.yaml.
+secretEnv: {}

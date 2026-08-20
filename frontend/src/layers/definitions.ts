@@ -4,6 +4,7 @@ import { trainsLayer } from './trains'
 import { busLayer } from './bus'
 import { situationsLayer } from './situations'
 import { flightsLayer } from './flights'
+import { weatherLayer } from './weather'
 import type { LayerDefinition } from './types'
 
 // The registry MapView and Sidebar iterate. Each layer is instantiated and
@@ -15,10 +16,11 @@ import type { LayerDefinition } from './types'
 // both the list and the map stack) — the user can drag to change it at
 // runtime (see App.tsx layerOrder state), this is just the starting point.
 export const LAYER_DEFINITIONS: LayerDefinition[] = [
-  trainsLayer,
-  busLayer,
   situationsLayer,
+  trainsLayer,
+  flightsLayer,
+  busLayer,
   parkingLayer,
   eChargingLayer,
-  flightsLayer,
+  weatherLayer,
 ]

@@ -39,8 +39,8 @@ export const STATUS_LABELS: Record<string, string> = {
 // rules for finer-grained or entirely different coloring — see
 // layers/types.ts ColorRule.
 export const STATUS_COLOR_RULES: ColorRule[] = [
-  { key: 'ok', color: STATUS_COLORS.ok, test: (p) => p.status === 'ok' },
-  { key: 'warning', color: STATUS_COLORS.warning, test: (p) => p.status === 'warning' },
-  { key: 'critical', color: STATUS_COLORS.critical, test: (p) => p.status === 'critical' },
-  { key: 'unknown', color: STATUS_COLORS.unknown, test: () => true },
+  { key: 'ok', color: STATUS_COLORS.ok, score: 0, test: (p) => p.status === 'ok' },
+  { key: 'warning', color: STATUS_COLORS.warning, score: 50, test: (p) => p.status === 'warning' },
+  { key: 'critical', color: STATUS_COLORS.critical, score: 100, test: (p) => p.status === 'critical' },
+  { key: 'unknown', color: STATUS_COLORS.unknown, score: 0, test: () => true },
 ]

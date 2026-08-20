@@ -1,15 +1,8 @@
 import type { Feature } from '../types/feature'
+import { formatDelay } from '../util/time'
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
-}
-
-/** hh:mm-free delay phrasing shared with DetailPanel's statusValueText, but standalone since the popup only needs the string, not a full component. */
-function delayText(delaySeconds: unknown): string | null {
-  if (typeof delaySeconds !== 'number') return null
-  const minutes = Math.round(delaySeconds / 60)
-  if (minutes <= 0) return 'On time'
-  return `+${minutes} min delay`
 }
 
 /**
@@ -27,7 +20,7 @@ export function vehicleTooltip(props: Feature['properties']): string {
   if (typeof direction === 'string' && direction) {
     lines.push(escapeHtml(direction))
   }
-  const delay = delayText(props.data.delaySeconds)
-  if (delay) lines.push(delay)
+  const delaySeconds = props.data.delaySeconds
+  if (typeof delaySeconds === 'number') lines.push(formatDelay(delaySeconds))
   return lines.join('<br/>')
 }

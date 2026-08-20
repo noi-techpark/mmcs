@@ -36,6 +36,8 @@ export interface ColorRule {
   color: string
   /** Icon opacity for features matching this rule, 0–1. Defaults to 1 (opaque) when omitted — only gradient-based rule sets (parking occupancy, train/bus delay) set this below 1. */
   opacity?: number
+  /** How "bad" this rule is, 0–100 — drives symbol-sort-key (see pointLayer.ts) so redder/more-opaque icons draw above calmer ones of the same layer when they'd otherwise overlap. Defaults to 0. */
+  score?: number
   test: (props: Feature['properties']) => boolean
 }
 

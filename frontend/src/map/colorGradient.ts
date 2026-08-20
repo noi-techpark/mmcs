@@ -81,6 +81,8 @@ function gradientAlpha(pct: number, rampToPct: number): number {
 export interface GradientColor {
   color: string
   opacity: number
+  /** Same 0–100 scale that drives hue/opacity — doubles as ColorRule.score, so redder/more-opaque buckets also win z-order (see pointLayer.ts). */
+  score: number
 }
 
 /**
@@ -100,6 +102,6 @@ export function twoBreakpointHueGradient(hueA: number, hueB: number, hueC: numbe
       clamped <= mid1 ? mixHue(hueA, hueB, clamped / mid1) :
       clamped < mid2 ? mixHue(hueB, hueC, (clamped - mid1) / (mid2 - mid1)) :
       hueC
-    return { color: hslToHex(hue, s, l), opacity: gradientAlpha(clamped, mid1) }
+    return { color: hslToHex(hue, s, l), opacity: gradientAlpha(clamped, mid1), score: clamped }
   }
 }

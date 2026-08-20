@@ -1,0 +1,2 @@
+# Local-only secrets (ODH client credentials, etc.) — see .env.example.
+.env

@@ -19,9 +19,15 @@ func urlPath(day time.Time) string {
 	return fmt.Sprintf("/netex/%d/plan/EU_profil/NX-PI_01_it_apb_LINE_apb__%s.xml.zip", day.Year(), day.Format("20060102"))
 }
 
-// FetchLatest downloads the most recent available day's export, trying
-// today and falling back a few days if the day's file isn't published
-// yet (or was skipped), and returns the parsed lines keyed by (colon-
+// netexPublishLag is how far behind "today" this export is normally
+// published — the source doesn't produce a file every single day, so
+// starting the search at today (or even yesterday) routinely 404s before
+// falling back. Starting 2 days back avoids that near-guaranteed miss.
+const netexPublishLag = 2
+
+// FetchLatest downloads the most recent available day's export, starting
+// netexPublishLag days back and falling back further if that day's file
+// isn't published either, and returns the parsed lines keyed by (colon-
 // trimmed) line id.
 func FetchLatest(now time.Time) (Data, time.Time, error) {
 	conn, err := ftp.Dial(ftpHost, ftp.DialWithTimeout(30*time.Second))
@@ -35,7 +41,7 @@ func FetchLatest(now time.Time) (Data, time.Time, error) {
 	}
 
 	var lastErr error
-	for i := 0; i < 3; i++ {
+	for i := netexPublishLag; i < netexPublishLag+3; i++ {
 		day := now.AddDate(0, 0, -i)
 		path := urlPath(day)
 		resp, err := conn.Retr(path)

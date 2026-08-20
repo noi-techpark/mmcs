@@ -9,6 +9,11 @@ services:
       - ./backend:/app
     environment:
       ADDR: ":8080"
+      # Optional — see .env.example. Unset is fine; authenticated ODH
+      # features just stay unavailable (see backend/internal/odhauth).
+      ODH_CLIENT_ID: "${ODH_CLIENT_ID:-}"
+      ODH_CLIENT_SECRET: "${ODH_CLIENT_SECRET:-}"
+      ODH_TOKEN_URL: "${ODH_TOKEN_URL:-}"
 
   frontend:
     build:

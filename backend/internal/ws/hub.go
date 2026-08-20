@@ -21,6 +21,7 @@ var activeLayers = []model.Layer{
 	model.LayerBusVeh,
 	model.LayerBusAlert,
 	model.LayerFlight,
+	model.LayerWeather,
 }
 
 type snapshotMessage struct {

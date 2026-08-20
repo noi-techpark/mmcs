@@ -72,6 +72,8 @@ jobs:
       - name: Customize values.yaml
         run: |
           yq -i '.image.tag="${{ env.DOCKER_TAG }}"' infrastructure/helm/test.yaml
+          yq -i '.secretEnv.ODH_CLIENT_ID="${{ secrets.ODH_CLIENT_ID }}"' infrastructure/helm/test.yaml
+          yq -i '.secretEnv.ODH_CLIENT_SECRET="${{ secrets.ODH_CLIENT_SECRET }}"' infrastructure/helm/test.yaml
 
       - name: Deploy on cluster
         uses: noi-techpark/github-actions/helm-deploy@v2

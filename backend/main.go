@@ -15,6 +15,7 @@ import (
 	"github.com/noi-techpark/open-mmc/backend/internal/feeds/siri"
 	"github.com/noi-techpark/open-mmc/backend/internal/model"
 	"github.com/noi-techpark/open-mmc/backend/internal/netex"
+	"github.com/noi-techpark/open-mmc/backend/internal/odhauth"
 	"github.com/noi-techpark/open-mmc/backend/internal/store"
 	"github.com/noi-techpark/open-mmc/backend/internal/ws"
 )
@@ -40,10 +41,16 @@ func main() {
 	// The flight list is a static weekly schedule rebuilt once an hour;
 	// give it enough headroom that it never expires between polls.
 	fs.SetMaxAge(model.LayerFlight, 3*time.Hour)
+	// SIAG weather readings have observed real-world publish lag of ~2h+
+	// between mvalidtime and appearing as "latest" — the default 30-minute
+	// window would leave this layer empty under normal conditions, not
+	// just during an outage.
+	fs.SetMaxAge(model.LayerWeather, 3*time.Hour)
 
 	odhClient := odh.NewClient()
 	go odh.Poll(ctx, odhClient, "parking", odh.ParkingURL, 60*time.Second, odh.NormalizeParking, fs)
 	go odh.Poll(ctx, odhClient, "echarging", odh.EChargingURL, 60*time.Second, odh.NormalizeECharging, fs)
+	go odh.PollWeather(ctx, odhClient, 5*time.Minute, fs)
 
 	siriClient := siri.NewClient(siriBaseURL)
 	go siri.Poll(ctx, siriClient, "SAD-trains", model.LayerTrainVeh, 15*time.Second, fs)
@@ -59,6 +66,15 @@ func main() {
 
 	netexStore := netex.NewStore()
 	go netex.Poll(ctx, netexStore, time.Hour)
+
+	// Not consumed by any feed client yet — prep work so the next
+	// authenticated Open Data Hub integration has a ready-to-use client
+	// (auto-refreshing Bearer token) instead of hand-rolling OAuth2 then.
+	odhAuthClient, err := odhauth.NewClient(ctx)
+	if err != nil {
+		log.Printf("odhauth: %v — authenticated ODH features unavailable", err)
+	}
+	_ = odhAuthClient
 
 	go siri.PollSX(ctx, siriLiteClient, model.LayerBusAlert, 60*time.Second, fs, netexStore)
 

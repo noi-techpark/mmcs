@@ -18,6 +18,7 @@ type Coordinate struct {
 // across station types (parking, e-charging, ...); metadata content varies.
 type Record struct {
 	Timestamp   string         `json:"_timestamp"`
+	TName       string         `json:"tname"`
 	MValidTime  string         `json:"mvalidtime"`
 	MValue      float64        `json:"mvalue"`
 	SCode       string         `json:"scode"`

@@ -89,6 +89,17 @@ export function createPointLayer(
     fallbackRule.opacity ?? 1,
   ] as unknown as maplibregl.ExpressionSpecification
 
+  // "Worse" icons (higher score — redder/more opaque) draw above calmer
+  // ones of the same layer when they'd otherwise overlap: MapLibre draws
+  // symbol-sort-key in ascending order, so a higher score needs to sort
+  // later/on top.
+  const sortKeyExpr = [
+    'match',
+    ['get', '_colorKey'],
+    ...colorRules.slice(0, -1).flatMap((r) => [r.key, r.score ?? 0]),
+    fallbackRule.score ?? 0,
+  ] as unknown as maplibregl.ExpressionSpecification
+
   // Mutable so a single map-layer-visibility update can account for the
   // layer's on/off state and its clustering option together.
   let currentlyVisible = true
@@ -117,6 +128,7 @@ export function createPointLayer(
         'icon-image': iconExpr,
         'icon-size': ICON_RENDER_SCALE,
         'icon-allow-overlap': true,
+        'symbol-sort-key': sortKeyExpr,
       },
       paint: {
         'icon-opacity': hasGradientOpacity ? dynamicOpacityExpr : 1,

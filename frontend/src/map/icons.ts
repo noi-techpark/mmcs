@@ -217,6 +217,32 @@ function alertIcon(color: string): ImageData {
   return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
 }
 
+// A hexagon badge (the seventh base shape) with a white raindrop glyph —
+// weather stations report both temperature and precipitation, so a
+// generic drop (rather than a thermometer) reads as "weather" broadly
+// instead of implying only one of the two.
+function weatherIcon(color: string): ImageData {
+  const ctx = newCtx()
+  const hex = new Path2D()
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i - Math.PI / 2
+    const x = 64 + 48 * Math.cos(angle)
+    const y = 64 + 48 * Math.sin(angle)
+    if (i === 0) hex.moveTo(x, y)
+    else hex.lineTo(x, y)
+  }
+  hex.closePath()
+  withOutlinePath(ctx, color, hex)
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.moveTo(64, 30)
+  ctx.quadraticCurveTo(94, 76, 64, 96)
+  ctx.quadraticCurveTo(34, 76, 64, 30)
+  ctx.closePath()
+  ctx.fill()
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
 const DRAWERS: Record<string, (color: string) => ImageData> = {
   parking: parkingIcon,
   e_charging: eChargingIcon,
@@ -225,6 +251,7 @@ const DRAWERS: Record<string, (color: string) => ImageData> = {
   bus_alert: alertIcon,
   on_demand_vehicle: busIcon,
   flight: flightIcon,
+  weather_station: weatherIcon,
 }
 
 export function iconImageId(layer: Layer, colorKey: string): string {

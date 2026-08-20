@@ -64,5 +64,12 @@ export function LayerIcon({ layer, color = '#e8e8e8' }: { layer: Layer; color?: 
           <path d="M7.25 9.75 5 11.75 7.25 11Z" fill="#1c1e22" />
         </svg>
       )
+    case 'weather_station':
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M8 1 14.06 4.5 14.06 11.5 8 15 1.94 11.5 1.94 4.5Z" fill={color} />
+          <path d="M8 4 C8 4 4.5 9 4.5 11 A3.5 3.5 0 0 0 11.5 11 C11.5 9 8 4 8 4Z" fill="#1c1e22" />
+        </svg>
+      )
   }
 }

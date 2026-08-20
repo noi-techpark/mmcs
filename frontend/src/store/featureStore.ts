@@ -15,6 +15,7 @@ const emptyLayers = (): Record<Layer, Map<string, Feature>> => ({
   bus_alert: new Map(),
   on_demand_vehicle: new Map(),
   flight: new Map(),
+  weather_station: new Map(),
 })
 
 export const useFeatureStore = create<FeatureState>((set, get) => ({

@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import { STATUS_COLORS, STATUS_LABELS } from '../map/colors'
 import { LAYER_DEFINITIONS } from '../layers/definitions'
 import { LayerIcon } from './LayerIcon'
-import { relativeTime } from '../util/time'
+import { relativeTime, formatDelay } from '../util/time'
 import { nearestSegmentIndex, type LonLat } from '../util/geo'
 import type { Feature } from '../types/feature'
 import type { Journey, EstimatedTimetable } from '../types/line'
@@ -187,12 +187,11 @@ function formatValue(value: unknown): string {
 /** Layer-specific headline metric shown next to the status dot, in place of the generic OK/Warning/Critical label. */
 function statusValueText(layer: string, data: Record<string, unknown>): string | null {
   switch (layer) {
-    case 'train_vehicle': {
+    case 'train_vehicle':
+    case 'bus_vehicle': {
       const delaySeconds = data.delaySeconds
       if (typeof delaySeconds !== 'number') return null
-      const minutes = Math.round(delaySeconds / 60)
-      if (minutes <= 0) return 'On time'
-      return `+${minutes} min delay`
+      return formatDelay(delaySeconds)
     }
     case 'parking': {
       const { occupied, capacity } = data
@@ -203,6 +202,13 @@ function statusValueText(layer: string, data: Record<string, unknown>): string |
       const available = data.available
       if (typeof available !== 'number') return null
       return `${available} free`
+    }
+    case 'weather_station': {
+      const { temperatureC, precipitationMM } = data
+      const parts: string[] = []
+      if (typeof temperatureC === 'number') parts.push(`${temperatureC.toFixed(1)}°C`)
+      if (typeof precipitationMM === 'number') parts.push(`${precipitationMM.toFixed(1)} mm`)
+      return parts.length ? parts.join(' · ') : null
     }
     default:
       return null

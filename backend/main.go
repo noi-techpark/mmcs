@@ -46,6 +46,12 @@ func main() {
 	// window would leave this layer empty under normal conditions, not
 	// just during an outage.
 	fs.SetMaxAge(model.LayerWeather, 3*time.Hour)
+	// A22 traffic sensors were observed with ~1h of real-world publish lag
+	// between mvalidtime and appearing as "latest" (readings are on a
+	// ~10-minute sampling period, but ingestion into ODH lags well past
+	// that) — the default 30-minute window rejected every reading as
+	// stale on arrival.
+	fs.SetMaxAge(model.LayerTraffic, 2*time.Hour)
 
 	odhClient := odh.NewClient()
 	go odh.Poll(ctx, odhClient, "parking", odh.ParkingURL, 60*time.Second, odh.NormalizeParking, fs)
@@ -67,14 +73,12 @@ func main() {
 	netexStore := netex.NewStore()
 	go netex.Poll(ctx, netexStore, time.Hour)
 
-	// Not consumed by any feed client yet — prep work so the next
-	// authenticated Open Data Hub integration has a ready-to-use client
-	// (auto-refreshing Bearer token) instead of hand-rolling OAuth2 then.
 	odhAuthClient, err := odhauth.NewClient(ctx)
 	if err != nil {
 		log.Printf("odhauth: %v — authenticated ODH features unavailable", err)
+	} else {
+		go odh.PollTraffic(ctx, odh.NewAuthenticatedClient(odhAuthClient), 60*time.Second, fs)
 	}
-	_ = odhAuthClient
 
 	go siri.PollSX(ctx, siriLiteClient, model.LayerBusAlert, 60*time.Second, fs, netexStore)
 

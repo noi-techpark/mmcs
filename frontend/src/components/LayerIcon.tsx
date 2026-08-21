@@ -71,5 +71,13 @@ export function LayerIcon({ layer, color = '#e8e8e8' }: { layer: Layer; color?: 
           <path d="M8 4 C8 4 4.5 9 4.5 11 A3.5 3.5 0 0 0 11.5 11 C11.5 9 8 4 8 4Z" fill="#1c1e22" />
         </svg>
       )
+    case 'traffic_station':
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M8 1 15 8 8 15 1 8Z" fill={color} />
+          <rect x="7.25" y="4" width="1.5" height="3.25" rx="0.6" fill="#1c1e22" />
+          <rect x="7.25" y="8.75" width="1.5" height="3.25" rx="0.6" fill="#1c1e22" />
+        </svg>
+      )
   }
 }

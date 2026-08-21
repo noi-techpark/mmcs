@@ -9,6 +9,7 @@ export type Layer =
   | 'on_demand_vehicle'
   | 'flight'
   | 'weather_station'
+  | 'traffic_station'
 
 export type Status = 'ok' | 'warning' | 'critical' | 'unknown'
 

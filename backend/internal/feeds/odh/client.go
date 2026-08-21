@@ -29,6 +29,15 @@ type Record struct {
 	SType       string         `json:"stype"`
 	SActive     bool           `json:"sactive"`
 	SAvailable  bool           `json:"savailable"`
+	// PCode/PName/PCoordinate identify the parent "station" a sensor
+	// belongs to — e.g. several TrafficSensor lane sensors (scode) sharing
+	// one physical road section and direction (pcode). Unused by feeds that
+	// treat scode as the final granularity; traffic.go groups by pcode
+	// instead, since same-pcode sensors share an identical scoordinate and
+	// would otherwise render as fully overlapping map icons.
+	PCode       string     `json:"pcode"`
+	PName       string     `json:"pname"`
+	PCoordinate Coordinate `json:"pcoordinate"`
 }
 
 type flatResponse struct {
@@ -41,6 +50,13 @@ type Client struct {
 
 func NewClient() *Client {
 	return &Client{httpClient: &http.Client{Timeout: 15 * time.Second}}
+}
+
+// NewAuthenticatedClient wraps an already-authenticating *http.Client (e.g.
+// from odhauth.NewClient, which attaches/refreshes a Bearer token) for feeds
+// that need closed/restricted ODH data rather than the public flat endpoints.
+func NewAuthenticatedClient(hc *http.Client) *Client {
+	return &Client{httpClient: hc}
 }
 
 func (c *Client) FetchFlat(url string) ([]Record, error) {

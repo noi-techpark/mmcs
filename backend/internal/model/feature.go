@@ -15,6 +15,7 @@ const (
 	LayerOnDemand  Layer = "on_demand_vehicle"
 	LayerFlight    Layer = "flight"
 	LayerWeather   Layer = "weather_station"
+	LayerTraffic   Layer = "traffic_station"
 )
 
 type Status string

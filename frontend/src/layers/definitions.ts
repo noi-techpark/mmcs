@@ -5,6 +5,7 @@ import { busLayer } from './bus'
 import { situationsLayer } from './situations'
 import { flightsLayer } from './flights'
 import { weatherLayer } from './weather'
+import { trafficLayer } from './traffic'
 import type { LayerDefinition } from './types'
 
 // The registry MapView and Sidebar iterate. Each layer is instantiated and
@@ -23,4 +24,5 @@ export const LAYER_DEFINITIONS: LayerDefinition[] = [
   parkingLayer,
   eChargingLayer,
   weatherLayer,
+  trafficLayer,
 ]

@@ -243,6 +243,27 @@ function weatherIcon(color: string): ImageData {
   return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
 }
 
+// A diamond badge (the eighth base shape, matching road-sign framing) with
+// two white lane-stripe dashes — traffic sensors classify by lane/road
+// flow, so a road-adjacent shape reads as "traffic" distinctly from the
+// weather hexagon or the parking square.
+function trafficIcon(color: string): ImageData {
+  const ctx = newCtx()
+  const diamond = new Path2D()
+  diamond.moveTo(64, 10)
+  diamond.lineTo(118, 64)
+  diamond.lineTo(64, 118)
+  diamond.lineTo(10, 64)
+  diamond.closePath()
+  withOutlinePath(ctx, color, diamond)
+  ctx.fillStyle = '#ffffff'
+  roundRect(ctx, 58, 34, 12, 26, 4)
+  ctx.fill()
+  roundRect(ctx, 58, 68, 12, 26, 4)
+  ctx.fill()
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
 const DRAWERS: Record<string, (color: string) => ImageData> = {
   parking: parkingIcon,
   e_charging: eChargingIcon,
@@ -252,6 +273,7 @@ const DRAWERS: Record<string, (color: string) => ImageData> = {
   on_demand_vehicle: busIcon,
   flight: flightIcon,
   weather_station: weatherIcon,
+  traffic_station: trafficIcon,
 }
 
 export function iconImageId(layer: Layer, colorKey: string): string {

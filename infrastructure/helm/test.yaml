@@ -5,7 +5,10 @@ image:
 # ODH_CLIENT_ID / ODH_CLIENT_SECRET are patched into secretEnv at deploy
 # time by the CI/CD workflow, from GitHub Actions repo secrets.
 env:
-  ODH_TOKEN_URL: "https://auth.opendatahub.testingmachine.eu/auth/realms/noi/protocol/openid-connect/token"
+  # Realm-specific — must match whichever realm ODH_CLIENT_ID/SECRET (repo
+  # secrets, patched into secretEnv above) are registered in. See
+  # .env.example for the test-realm alternative.
+  ODH_TOKEN_URL: "https://auth.opendatahub.com/auth/realms/noi/protocol/openid-connect/token"
 
 ingress:
   enabled: true

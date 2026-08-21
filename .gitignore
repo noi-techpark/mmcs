@@ -1,2 +1,5 @@
 # Local-only secrets (ODH client credentials, etc.) — see .env.example.
 .env
+
+# air (backend/.air.toml) build output — compiled dev binary + build-error log.
+backend/tmp/

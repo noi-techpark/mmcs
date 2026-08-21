@@ -299,7 +299,28 @@ func buildGeometry(stops []Stop, links map[string][][2]float64) [][2]float64 {
 	if len(stops) == 0 {
 		return nil
 	}
-	geometry := [][2]float64{{stops[0].Lon, stops[0].Lat}}
+	// Pre-count the exact output size instead of letting append() grow the
+	// slice geometrically — this is the route-shape data retained for
+	// every route in the whole network for the store's lifetime, so the up
+	// to ~50% of capacity append-growth typically leaves unused (last
+	// doubling overshoots the real total) adds up across the network;
+	// profiling (see PR/commit discussion) found this the single largest
+	// contributor to netex.Store's retained heap.
+	total := 1
+	for i := 0; i+1 < len(stops); i++ {
+		a, b := stops[i], stops[i+1]
+		switch {
+		case links[a.ID+"|"+b.ID] != nil:
+			total += len(links[a.ID+"|"+b.ID])
+		case links[b.ID+"|"+a.ID] != nil:
+			total += len(links[b.ID+"|"+a.ID])
+		default:
+			total++
+		}
+	}
+
+	geometry := make([][2]float64, 1, total)
+	geometry[0] = [2]float64{stops[0].Lon, stops[0].Lat}
 	for i := 0; i+1 < len(stops); i++ {
 		a, b := stops[i], stops[i+1]
 		switch {

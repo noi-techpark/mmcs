@@ -11,22 +11,37 @@ import type { Journey } from '../types/line'
 const SELECTED_ROUTE_SOURCE = 'selected-route'
 const SELECTED_ROUTE_LAYER = 'selected-route-line'
 
-const BOLZANO_CENTER: [number, number] = [11.35, 46.5]
+// South Tyrol / Südtirol / Alto Adige province extent (lng/lat corners).
+const SOUTH_TYROL_BOUNDS: [[number, number], [number, number]] = [
+  [10.38, 46.22],
+  [12.48, 47.1],
+]
 
-// CARTO Positron: light, minimal basemap that keeps status/icon colors as
-// the only saturated ink on screen. Glyphs are needed for cluster-count labels.
-const LIGHT_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-  sources: {
-    basemap: {
-      type: 'raster',
-      tiles: ['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors © CARTO',
-    },
-  },
-  layers: [{ id: 'basemap', type: 'raster', source: 'basemap' }],
+// OpenFreeMap Positron: light, minimal basemap that keeps status/icon colors
+// as the only saturated ink on screen. Ships its own glyphs (incl. Noto Sans
+// Regular), needed for cluster-count labels.
+const LIGHT_STYLE = 'https://tiles.openfreemap.org/styles/positron'
+
+// Positron's place-name labels render pure black (#000), which reads too
+// heavy against the feature layers drawn on top. Match the muted gray
+// already used for road/POI labels in this style.
+const BLACK_LABEL_LAYERS = [
+  'label_village',
+  'label_town',
+  'label_city',
+  'label_city_capital',
+  'label_country_1',
+  'label_country_2',
+  'label_country_3',
+]
+
+// Thin out minor place labels: villages/hamlets and misc. places stay hidden
+// until you've zoomed in well past the default view; towns hold off a couple
+// levels too. Cities/states/countries keep their original (much lower) minzoom.
+const LABEL_MINZOOM_OVERRIDES: Record<string, number> = {
+  label_other: 12,
+  label_village: 13,
+  label_town: 10,
 }
 
 interface MapViewProps {
@@ -82,12 +97,18 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: LIGHT_STYLE,
-      center: BOLZANO_CENTER,
-      zoom: 12,
+      bounds: SOUTH_TYROL_BOUNDS,
     })
     mapRef.current = map
 
     map.on('load', () => {
+      for (const layerId of BLACK_LABEL_LAYERS) {
+        if (map.getLayer(layerId)) map.setPaintProperty(layerId, 'text-color', '#666')
+      }
+      for (const [layerId, minzoom] of Object.entries(LABEL_MINZOOM_OVERRIDES)) {
+        if (map.getLayer(layerId)) map.setLayerZoomRange(layerId, minzoom, 24)
+      }
+
       // Added before the layer defs mount, so their icons render above
       // this line rather than under it.
       map.addSource(SELECTED_ROUTE_SOURCE, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })

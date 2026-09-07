@@ -39,9 +39,9 @@ const BLACK_LABEL_LAYERS = [
 // until you've zoomed in well past the default view; towns hold off a couple
 // levels too. Cities/states/countries keep their original (much lower) minzoom.
 const LABEL_MINZOOM_OVERRIDES: Record<string, number> = {
-  label_other: 12,
-  label_village: 13,
-  label_town: 10,
+  label_other: 10,
+  label_village: 11,
+  label_town: 8,
 }
 
 interface MapViewProps {
@@ -108,6 +108,11 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
       for (const [layerId, minzoom] of Object.entries(LABEL_MINZOOM_OVERRIDES)) {
         if (map.getLayer(layerId)) map.setLayerZoomRange(layerId, minzoom, 24)
       }
+
+      // Uniform white wash over the whole basemap (roads, buildings, land
+      // cover, water) so it recedes further behind the feature layers, which
+      // mount after this and so stay unaffected.
+      map.addLayer({ id: 'basemap-wash', type: 'background', paint: { 'background-color': '#ffffff', 'background-opacity': 0.35 } })
 
       // Added before the layer defs mount, so their icons render above
       // this line rather than under it.

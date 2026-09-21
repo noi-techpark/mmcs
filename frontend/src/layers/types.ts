@@ -7,9 +7,12 @@
 import type * as maplibregl from 'maplibre-gl'
 import type { ComponentType } from 'react'
 import type { Feature, Layer } from '../types/feature'
+import type { FilterInstance } from '../filters/types'
 
 export interface LayerOptions {
   opacity: number
+  /** Current value per filter id (see LayerDefinition.filters), keyed by FilterInstance.id. */
+  filterValues?: Record<string, unknown>
   [key: string]: unknown
 }
 
@@ -90,4 +93,11 @@ export interface LayerDefinition {
   mapLayerIds?: string[]
   /** Whether this layer starts checked-on in the sidebar. Defaults to true. */
   defaultVisible?: boolean
+  /**
+   * This layer's filter instances (see filters/types.ts), each already
+   * bound to its own id/label/domain by the layer file that created it
+   * (e.g. bus.ts instancing filters/delayRangeFilter.tsx). Rendered by the
+   * generic FiltersControl UI; values live in LayerOptions.filterValues.
+   */
+  filters?: FilterInstance<any>[]
 }

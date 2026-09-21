@@ -276,8 +276,26 @@ function isSituation(layer: string, data: Record<string, unknown>): boolean {
 
 function SituationDetail({ data }: { data: Record<string, unknown> }) {
   const affectedStops = Array.isArray(data.affectedStops) ? (data.affectedStops as string[]) : []
+  const reason = typeof data.reason === 'string' ? data.reason : ''
   return (
     <>
+      {reason && (
+        <div
+          style={{
+            fontSize: 13.5,
+            lineHeight: 1.5,
+            background: '#24272c',
+            border: '1px solid #2f3237',
+            borderLeft: `3px solid ${STATUS_COLORS.warning}`,
+            borderRadius: 4,
+            padding: '10px 12px',
+            marginBottom: 12,
+            whiteSpace: 'pre-wrap',
+          }}
+        >
+          {reason}
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
         {typeof data.alertCause === 'string' && data.alertCause && (
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>

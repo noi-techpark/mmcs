@@ -2,15 +2,19 @@ import { useEffect, useState } from 'react'
 import { MapView } from './map/MapView'
 import { Sidebar } from './components/Sidebar'
 import { DetailPanel } from './components/DetailPanel'
+import { FiltersControl } from './components/FiltersControl'
 import { LAYER_DEFINITIONS } from './layers/definitions'
 import type { LayerOptions } from './layers/types'
 import type { Feature, Layer } from './types/feature'
 import type { Journey, EstimatedTimetable } from './types/line'
 
 function App() {
-  // All layers start unchecked — each individual layer's own defaultVisible
-  // (see layers/types.ts) is overridden here rather than edited per layer.
-  const [visibleLayers, setVisibleLayers] = useState<Set<Layer>>(new Set())
+  // Layers start visible per their own defaultVisible (see layers/types.ts)
+  // — eCharging and weather opt out (too dense, dominate the map on first
+  // load), every other layer defaults to true.
+  const [visibleLayers, setVisibleLayers] = useState<Set<Layer>>(
+    () => new Set(LAYER_DEFINITIONS.filter((d) => d.defaultVisible !== false).map((d) => d.id)),
+  )
   const [layerOptions, setLayerOptions] = useState<Record<Layer, LayerOptions>>(
     () => Object.fromEntries(LAYER_DEFINITIONS.map((d) => [d.id, d.defaultOptions])) as Record<Layer, LayerOptions>,
   )
@@ -128,6 +132,7 @@ function App() {
           onFeatureSelect={setSelectedFeature}
           selectedJourney={journey}
         />
+        <FiltersControl visibleLayers={visibleLayers} layerOptions={layerOptions} onOptionsChange={updateOptions} />
         {selectedFeature && (
           <DetailPanel
             feature={selectedFeature}

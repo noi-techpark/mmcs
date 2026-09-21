@@ -61,4 +61,6 @@ function weatherTooltip(props: Feature['properties']): string {
 
 // Own file so its thresholds/coloring can be tuned independently of the
 // other layers — see layers/definitions.ts for how these get registered.
-export const weatherLayer = createPointLayer('weather_station', 'Weather', {}, WEATHER_COLOR_RULES, true, weatherTooltip)
+// Off by default, same reasoning as eCharging.ts — dense enough to
+// dominate the map on first load.
+export const weatherLayer = createPointLayer('weather_station', 'Weather', {}, WEATHER_COLOR_RULES, false, weatherTooltip)

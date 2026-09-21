@@ -30,6 +30,7 @@ import { registerIcons, iconImageId, ICON_RENDER_SCALE } from '../map/icons'
 import { createPointLayerOptions } from './PointLayerOptions'
 import type { LayerDefinition, LayerOptions, LabelTarget, ColorRule } from './types'
 import type { Feature, Layer } from '../types/feature'
+import type { FilterInstance } from '../filters/types'
 
 const CLUSTER_RADIUS = 50
 const CLUSTER_MAX_ZOOM = 15
@@ -55,6 +56,8 @@ export function createPointLayer(
   defaultVisible = true,
   /** When set, hovering an (unclustered) icon shows a small popup built from this. Return '' to skip. */
   tooltip?: (props: Feature['properties']) => string,
+  /** This layer's filter instances (see filters/types.ts) — rendered by the generic FiltersControl UI, applied here before features reach the map source. */
+  filters: FilterInstance<any>[] = [],
 ): LayerDefinition {
   const clusteredSourceId = id
   const flatSourceId = `${id}-flat`
@@ -107,6 +110,26 @@ export function createPointLayer(
   let labelsEnabled = overrides.labels === true
   let dynamicOpacityEnabled = overrides.dynamicOpacity !== false
 
+  // Feature data (setData) and filter values (applyOptions) arrive via
+  // separate calls, so both are cached here and combined whenever either
+  // changes — see pushData.
+  let latestFeatures: Feature[] = []
+  let currentFilterValues: Record<string, unknown> = {}
+
+  function passesFilters(feature: Feature): boolean {
+    return filters.every((f) => f.test(feature, currentFilterValues[f.id] ?? f.defaultValue))
+  }
+
+  function pushData(map: maplibregl.Map) {
+    const tagged = latestFeatures.filter(passesFilters).map((f) => ({
+      ...f,
+      properties: { ...f.properties, _colorKey: classify(f.properties).key },
+    }))
+    const fc = { type: 'FeatureCollection' as const, features: tagged }
+    ;(map.getSource(clusteredSourceId) as maplibregl.GeoJSONSource | undefined)?.setData(fc)
+    ;(map.getSource(flatSourceId) as maplibregl.GeoJSONSource | undefined)?.setData(fc)
+  }
+
   function syncVisibility(map: maplibregl.Map) {
     if (!map.getLayer(clusteredPointsLayerId)) return
     const clusteredVisible = currentlyVisible && clusteringEnabled
@@ -136,14 +159,30 @@ export function createPointLayer(
     })
   }
 
+  // Filters that declare an initialValue (see filters/types.ts) start
+  // pre-applied rather than fully open — e.g. bus.ts's delay filter
+  // defaulting to "≥ 5 min" on first load — generic here so any layer's
+  // filter instances can opt into this without touching App.tsx.
+  const initialFilterValues = Object.fromEntries(
+    filters.filter((f) => f.initialValue !== undefined).map((f) => [f.id, f.initialValue]),
+  )
+
   return {
     id,
     label,
-    defaultOptions: { opacity: 1, clustering: false, labels: false, dynamicOpacity: true, ...overrides },
+    defaultOptions: {
+      opacity: 1,
+      clustering: false,
+      labels: false,
+      dynamicOpacity: true,
+      ...(Object.keys(initialFilterValues).length > 0 ? { filterValues: initialFilterValues } : {}),
+      ...overrides,
+    },
     OptionsPanel: createPointLayerOptions(hasGradientOpacity),
     iconLayerIds: [clusterLayerId, clusteredPointsLayerId, flatPointsLayerId],
     mapLayerIds: [clusterLayerId, countLayerId, clusteredPointsLayerId, flatPointsLayerId],
     defaultVisible,
+    filters: filters.length > 0 ? filters : undefined,
 
     mount(map, ctx) {
       registerIcons(map, id, colorRules)
@@ -244,13 +283,8 @@ export function createPointLayer(
     },
 
     setData(map, features) {
-      const tagged = features.map((f) => ({
-        ...f,
-        properties: { ...f.properties, _colorKey: classify(f.properties).key },
-      }))
-      const fc = { type: 'FeatureCollection' as const, features: tagged }
-      ;(map.getSource(clusteredSourceId) as maplibregl.GeoJSONSource | undefined)?.setData(fc)
-      ;(map.getSource(flatSourceId) as maplibregl.GeoJSONSource | undefined)?.setData(fc)
+      latestFeatures = features
+      pushData(map)
     },
 
     setVisible(map, visible) {
@@ -263,6 +297,9 @@ export function createPointLayer(
       clusteringEnabled = options.clustering === true
       labelsEnabled = options.labels === true
       dynamicOpacityEnabled = options.dynamicOpacity !== false
+      const filterValuesChanged = options.filterValues !== currentFilterValues
+      currentFilterValues = options.filterValues ?? {}
+      if (filterValuesChanged && filters.length > 0) pushData(map)
       syncVisibility(map)
 
       const opacity = options.opacity

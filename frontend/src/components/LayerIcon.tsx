@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import type { Layer } from '../types/feature'
 
 // Sidebar-scale mirrors of the on-map SDF glyphs (map/icons.ts) — same
@@ -33,8 +37,43 @@ export function LayerIcon({ layer, color = '#e8e8e8' }: { layer: Layer; color?: 
           <path d="M7.25 12.25 L6.25 12.25 L1 15.75 L3 15.75 Z M8.75 12.25 L9.75 12.25 L15 15.75 L13 15.75 Z" fill={color} />
         </svg>
       )
-    case 'bus_vehicle':
     case 'on_demand_vehicle':
+      // Mini mirror of the map glyph (map/icons.ts carIcon): same 128-unit
+      // path, drawn into a 128 viewBox so it scales with the 16px box.
+      return (
+        <svg width="16" height="16" viewBox="0 0 128 128" aria-hidden="true">
+          <path d="M14 84 V66 Q14 58 24 56 L42 52 L56 32 Q60 26 68 26 H88 Q95 26 99 32 L110 52 L116 56 Q122 58 122 66 V84 Q122 90 116 90 H20 Q14 90 14 84 Z" fill={color} />
+          <path d="M46 54 L58 36 H66 V54 Z M70 36 H88 L98 54 H70 Z" fill="#1c1e22" />
+          <rect x="62" y="12" width="24" height="14" rx="4" fill={color} />
+          <circle cx="36" cy="90" r="16" fill="#1c1e22" />
+          <circle cx="36" cy="90" r="9" fill={color} />
+          <circle cx="98" cy="90" r="16" fill="#1c1e22" />
+          <circle cx="98" cy="90" r="9" fill={color} />
+        </svg>
+      )
+    case 'air_quality':
+      // Mini mirror of the map glyph (map/icons.ts airQualityIcon): a shield
+      // with three wind lines.
+      return (
+        <svg width="16" height="16" viewBox="0 0 128 128" aria-hidden="true">
+          <path d="M64 12 L110 30 L110 64 Q110 96 64 118 Q18 96 18 64 L18 30 Z" fill={color} />
+          <path d="M34 46 H84 M34 62 H94 M34 78 H78" stroke="#1c1e22" strokeWidth="6" strokeLinecap="round" />
+        </svg>
+      )
+    case 'bike_parking':
+      // Mini mirror of the map glyph (map/icons.ts bikeParkingIcon): a
+      // teardrop pin with a bicycle cut out of it.
+      return (
+        <svg width="16" height="16" viewBox="0 0 128 128" aria-hidden="true">
+          <path d="M64 116 C52 100 26 80 26 52 A38 38 0 0 1 102 52 C102 80 76 100 64 116 Z" fill={color} />
+          <g fill="none" stroke="#1c1e22" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="52" cy="58" r="9" />
+            <circle cx="76" cy="58" r="9" />
+            <path d="M52 58 L63 45 L76 58 M63 45 L70 40" />
+          </g>
+        </svg>
+      )
+    case 'bus_vehicle':
       // Mini mirror of the map glyph (map/icons.ts busIcon): a wide,
       // side-on body — as simple as possible — one window band, two wheels.
       return (

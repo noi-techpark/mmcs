@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package ws fans out FeatureStore diffs to connected WebSocket clients.
 package ws
 
@@ -23,6 +27,9 @@ var activeLayers = []model.Layer{
 	model.LayerFlight,
 	model.LayerWeather,
 	model.LayerTraffic,
+	model.LayerOnDemand,
+	model.LayerBikeParking,
+	model.LayerAirQuality,
 }
 
 type snapshotMessage struct {

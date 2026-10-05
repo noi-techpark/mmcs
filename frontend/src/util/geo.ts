@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Small geo helpers for "where along this route is the vehicle right now"
 // — see DetailPanel's train position indicator. The area covered (one
 // province) is small enough that a longitude scale correction by cos(lat)

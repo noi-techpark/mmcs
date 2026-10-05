@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // A filter is a small, reusable rule that a layer can plug into its point
 // data: a value type, a test against a feature, and the control that edits
 // that value. `createXFilter()` factories (see delayRangeFilter.tsx) build

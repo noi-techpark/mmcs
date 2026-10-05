@@ -1,0 +1,6 @@
+version = 1
+
+[[annotations]]
+path = [".env.example", ".github/workflows/main.yml", ".gitignore", "backend/.air.toml", "backend/Dockerfile.dev", "backend/go.mod", "backend/go.sum", "design.md", "docker-compose.yml", "frontend/.gitignore", "frontend/.oxlintrc.json", "frontend/Dockerfile.dev", "frontend/README.md", "frontend/index.html", "frontend/package-lock.json", "frontend/package.json", "frontend/public/favicon.svg", "frontend/public/icons.svg", "frontend/src/index.css", "frontend/tsconfig.app.json", "frontend/tsconfig.json", "frontend/tsconfig.node.json", "infrastructure/docker-compose.build.yml", "infrastructure/docker/Dockerfile", "infrastructure/helm/open-mmc/.helmignore", "infrastructure/helm/open-mmc/Chart.yaml", "infrastructure/helm/open-mmc/templates/_helpers.tpl", "infrastructure/helm/open-mmc/templates/deployment.yaml", "infrastructure/helm/open-mmc/templates/ingress.yaml", "infrastructure/helm/open-mmc/templates/secret.yaml", "infrastructure/helm/open-mmc/templates/service.yaml", "infrastructure/helm/open-mmc/values.yaml", "infrastructure/helm/test.yaml", "requirements.md"]
+SPDX-FileCopyrightText = "2026 NOI Techpark"
+SPDX-License-Identifier = "CC0-1.0"

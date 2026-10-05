@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Renders per-layer, per-status icon images at build time (canvas, not
 // SDF): shape carries layer identity, fill color carries status. Plain
 // canvas fills anti-alias naturally and can carry a baked drop shadow —
@@ -264,13 +268,106 @@ function trafficIcon(color: string): ImageData {
   return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
 }
 
+// A sedan silhouette (side view, facing right) with a small roof sign — the
+// taxi marker. Built in the same 128-unit space as the other glyphs, and
+// the sidebar's LayerIcon uses this exact path at a 128 viewBox so the two
+// stay identical. Not a bus or train: no window band, wheels in white rings.
+const CAR_BODY_D =
+  'M14 84 V66 Q14 58 24 56 L42 52 L56 32 Q60 26 68 26 H88 Q95 26 99 32 L110 52 L116 56 Q122 58 122 66 V84 Q122 90 116 90 H20 Q14 90 14 84 Z'
+
+function carIcon(color: string): ImageData {
+  const ctx = newCtx()
+  withOutlinePath(ctx, color, new Path2D(CAR_BODY_D))
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.moveTo(46, 54)
+  ctx.lineTo(58, 36)
+  ctx.lineTo(66, 36)
+  ctx.lineTo(66, 54)
+  ctx.closePath()
+  ctx.fill()
+  ctx.beginPath()
+  ctx.moveTo(70, 36)
+  ctx.lineTo(88, 36)
+  ctx.lineTo(98, 54)
+  ctx.lineTo(70, 54)
+  ctx.closePath()
+  ctx.fill()
+  // roof sign, a small badge sitting on top of the cabin
+  withOutlinePath(ctx, color, roundRectPath(62, 12, 24, 14, 4))
+  // wheels: white ring with the body color inside
+  for (const cx of [36, 98]) {
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(cx, 90, 16, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.arc(cx, 90, 9, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
+// A map-pin silhouette (teardrop, the only non-polygonal base shape) with a
+// white bicycle inside — reads as a bike spot without competing with the
+// square "P" parking marker. Geometry is shared with LayerIcon.tsx.
+const BIKE_PIN_D = 'M64 116 C52 100 26 80 26 52 A38 38 0 0 1 102 52 C102 80 76 100 64 116 Z'
+
+function bikeParkingIcon(color: string): ImageData {
+  const ctx = newCtx()
+  withOutlinePath(ctx, color, new Path2D(BIKE_PIN_D))
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 5
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  for (const cx of [52, 76]) {
+    ctx.beginPath()
+    ctx.arc(cx, 58, 9, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+  ctx.beginPath()
+  ctx.moveTo(52, 58)
+  ctx.lineTo(63, 45)
+  ctx.lineTo(76, 58)
+  ctx.moveTo(63, 45)
+  ctx.lineTo(70, 40)
+  ctx.stroke()
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
+// A shield badge (a pentagon pointing down, distinct from every other base
+// shape) with three white wind lines — EAQI describes air, not a place or a
+// vehicle, so a wind glyph reads as "air quality" rather than weather.
+function airQualityIcon(color: string): ImageData {
+  const ctx = newCtx()
+  const shield = new Path2D('M64 12 L110 30 L110 64 Q110 96 64 118 Q18 96 18 64 L18 30 Z')
+  withOutlinePath(ctx, color, shield)
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 6
+  ctx.lineCap = 'round'
+  for (const [y, x1, x2] of [
+    [46, 34, 84],
+    [62, 34, 94],
+    [78, 34, 78],
+  ] as const) {
+    ctx.beginPath()
+    ctx.moveTo(x1, y)
+    ctx.lineTo(x2, y)
+    ctx.stroke()
+  }
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
 const DRAWERS: Record<string, (color: string) => ImageData> = {
   parking: parkingIcon,
   e_charging: eChargingIcon,
   train_vehicle: trainIcon,
   bus_vehicle: busIcon,
   bus_alert: alertIcon,
-  on_demand_vehicle: busIcon,
+  on_demand_vehicle: carIcon,
+  bike_parking: bikeParkingIcon,
+  air_quality: airQualityIcon,
   flight: flightIcon,
   weather_station: weatherIcon,
   traffic_station: trafficIcon,

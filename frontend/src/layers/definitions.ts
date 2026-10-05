@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { parkingLayer } from './parking'
 import { eChargingLayer } from './eCharging'
 import { trainsLayer } from './trains'
@@ -6,6 +10,9 @@ import { situationsLayer } from './situations'
 import { flightsLayer } from './flights'
 import { weatherLayer } from './weather'
 import { trafficLayer } from './traffic'
+import { onDemandLayer } from './onDemand'
+import { bikeParkingLayer } from './bikeParking'
+import { airQualityLayer } from './airQuality'
 import type { LayerDefinition } from './types'
 
 // The registry MapView and Sidebar iterate. Each layer is instantiated and
@@ -22,7 +29,10 @@ export const LAYER_DEFINITIONS: LayerDefinition[] = [
   flightsLayer,
   busLayer,
   parkingLayer,
+  bikeParkingLayer,
+  onDemandLayer,
   eChargingLayer,
   weatherLayer,
   trafficLayer,
+  airQualityLayer,
 ]

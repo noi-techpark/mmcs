@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package siri polls a SIRI-VM (Anshar) endpoint and parses the XML
 // VehicleMonitoringDelivery into Features.
 package siri

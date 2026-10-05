@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package odhauth provides an OAuth2 client-credentials HTTP client for
 // authenticated Open Data Hub (NOI Techpark) APIs — distinct from
 // backend/internal/feeds/odh, which only talks to ODH's public,

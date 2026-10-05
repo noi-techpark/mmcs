@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package model defines the common Feature shape shared by all feeds,
 // the store, the WebSocket hub, and the frontend. See design.md.
 package model
@@ -7,15 +11,17 @@ import "time"
 type Layer string
 
 const (
-	LayerParking   Layer = "parking"
-	LayerECharging Layer = "e_charging"
-	LayerTrainVeh  Layer = "train_vehicle"
-	LayerBusVeh    Layer = "bus_vehicle"
-	LayerBusAlert  Layer = "bus_alert"
-	LayerOnDemand  Layer = "on_demand_vehicle"
-	LayerFlight    Layer = "flight"
-	LayerWeather   Layer = "weather_station"
-	LayerTraffic   Layer = "traffic_station"
+	LayerParking     Layer = "parking"
+	LayerECharging   Layer = "e_charging"
+	LayerTrainVeh    Layer = "train_vehicle"
+	LayerBusVeh      Layer = "bus_vehicle"
+	LayerBusAlert    Layer = "bus_alert"
+	LayerOnDemand    Layer = "on_demand_vehicle"
+	LayerFlight      Layer = "flight"
+	LayerWeather     Layer = "weather_station"
+	LayerTraffic     Layer = "traffic_station"
+	LayerBikeParking Layer = "bike_parking"
+	LayerAirQuality  Layer = "air_quality"
 )
 
 type Status string

@@ -1,6 +1,12 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { Fragment, useState } from 'react'
 import { STATUS_COLORS, STATUS_LABELS } from '../map/colors'
 import { LAYER_DEFINITIONS } from '../layers/definitions'
+import { TRAFFIC_SPEED_BAND_LABELS } from '../layers/traffic'
+import { AIR_QUALITY_BANDS } from '../layers/airQuality'
 import { LayerIcon } from './LayerIcon'
 import { relativeTime, formatDelay } from '../util/time'
 import { nearestSegmentIndex, type LonLat } from '../util/geo'
@@ -203,6 +209,24 @@ function statusValueText(layer: string, data: Record<string, unknown>): string |
       if (typeof available !== 'number') return null
       return `${available} free`
     }
+    case 'air_quality': {
+      const band = AIR_QUALITY_BANDS.find((b) => b.key === data.rating)
+      return band ? `${band.label} · NO₂ ${band.range}` : null
+    }
+    case 'bike_parking': {
+      const free = data.free
+      if (typeof free !== 'number') return null
+      return `${free} free`
+    }
+    case 'on_demand_vehicle': {
+      const state = data.state
+      if (typeof state !== 'string' || !state) return null
+      return state.charAt(0) + state.slice(1).toLowerCase()
+    }
+    case 'traffic_station': {
+      const band = data.speedBand
+      return typeof band === 'string' ? (TRAFFIC_SPEED_BAND_LABELS[band] ?? null) : null
+    }
     case 'weather_station': {
       const { temperatureC, precipitationMM } = data
       const parts: string[] = []
@@ -277,6 +301,7 @@ function isSituation(layer: string, data: Record<string, unknown>): boolean {
 function SituationDetail({ data }: { data: Record<string, unknown> }) {
   const affectedStops = Array.isArray(data.affectedStops) ? (data.affectedStops as string[]) : []
   const reason = typeof data.reason === 'string' ? data.reason : ''
+  const description = typeof data.description === 'string' ? data.description : ''
   return (
     <>
       {reason && (
@@ -294,6 +319,14 @@ function SituationDetail({ data }: { data: Record<string, unknown> }) {
           }}
         >
           {reason}
+        </div>
+      )}
+      {description && (
+        <div style={{ borderTop: '1px solid #2f3237', paddingTop: 10, marginBottom: 10 }}>
+          <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#9a9ea5', marginBottom: 6 }}>
+            Description
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{description}</div>
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
@@ -336,6 +369,9 @@ export function DetailPanel({ feature, journey, journeyLoading, estimatedTimetab
   const props = feature.properties
   const layerDef = LAYER_DEFINITIONS.find((d) => d.id === props.layer)
   const status = props.status ?? 'unknown'
+  // The dot matches the icon: layers with their own color rules (e.g. traffic
+  // speed bands) supply the color, the rest fall back to the backend status.
+  const dotColor = layerDef?.featureColor?.(props) ?? STATUS_COLORS[status]
   const situation = isSituation(props.layer, props.data)
   const [routeCollapsed, setRouteCollapsed] = useState(false)
   const [etCollapsed, setEtCollapsed] = useState(false)
@@ -401,7 +437,7 @@ export function DetailPanel({ feature, journey, journeyLoading, estimatedTimetab
               width: 9,
               height: 9,
               borderRadius: '50%',
-              background: STATUS_COLORS[status],
+              background: dotColor,
               border: '1.5px solid #fcfcfb',
               boxSizing: 'border-box',
               flexShrink: 0,

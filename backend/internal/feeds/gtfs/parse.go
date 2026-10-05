@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package gtfs fetches a GTFS static feed (a zip of CSV files) and, for a
 // single airport stop, aggregates the next N days of scheduled flights
 // into one Feature. GTFS is a static schedule, not a stream of per-record

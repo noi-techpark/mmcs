@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package main
 
 import (
@@ -52,11 +56,18 @@ func main() {
 	// that) — the default 30-minute window rejected every reading as
 	// stale on arrival.
 	fs.SetMaxAge(model.LayerTraffic, 2*time.Hour)
+	// EAQI ratings are hourly averages (mperiod=3600), so a reading is
+	// legitimately up to an hour old before the next one arrives — the
+	// default 30-minute window would drop most stations between updates.
+	fs.SetMaxAge(model.LayerAirQuality, 3*time.Hour)
 
 	odhClient := odh.NewClient()
 	go odh.Poll(ctx, odhClient, "parking", odh.ParkingURL, 60*time.Second, odh.NormalizeParking, fs)
 	go odh.Poll(ctx, odhClient, "echarging", odh.EChargingURL, 60*time.Second, odh.NormalizeECharging, fs)
 	go odh.PollWeather(ctx, odhClient, 5*time.Minute, fs)
+	go odh.Poll(ctx, odhClient, "bike-parking", odh.BikeParkingURL, 60*time.Second, odh.NormalizeBikeParking, fs)
+	go odh.PollOnDemand(ctx, odhClient, 60*time.Second, fs)
+	go odh.Poll(ctx, odhClient, "air-quality", odh.AirQualityURL, 5*time.Minute, odh.NormalizeAirQuality, fs)
 
 	siriClient := siri.NewClient(siriBaseURL)
 	go siri.Poll(ctx, siriClient, "SAD-trains", model.LayerTrainVeh, 15*time.Second, fs)

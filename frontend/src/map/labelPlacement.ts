@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Greedy collision-avoiding placement for name-label bubbles: for each
 // label target, try candidate positions around its glyph (increasing
 // radius, 8 compass directions) and keep the first that doesn't overlap

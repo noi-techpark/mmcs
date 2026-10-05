@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package odh polls Open Data Hub Mobility "flat" REST endpoints.
 package odh
 
@@ -17,18 +21,22 @@ type Coordinate struct {
 // Record is one entry of the ODH "flat" format. Field names are shared
 // across station types (parking, e-charging, ...); metadata content varies.
 type Record struct {
-	Timestamp   string         `json:"_timestamp"`
-	TName       string         `json:"tname"`
-	MValidTime  string         `json:"mvalidtime"`
-	MValue      float64        `json:"mvalue"`
-	SCode       string         `json:"scode"`
-	SName       string         `json:"sname"`
-	SCoordinate Coordinate     `json:"scoordinate"`
-	SMetadata   map[string]any `json:"smetadata"`
-	SOrigin     string         `json:"sorigin"`
-	SType       string         `json:"stype"`
-	SActive     bool           `json:"sactive"`
-	SAvailable  bool           `json:"savailable"`
+	Timestamp  string `json:"_timestamp"`
+	TName      string `json:"tname"`
+	MValidTime string `json:"mvalidtime"`
+	// MValue is set only when mvalue is numeric; see MValueRaw for the rest.
+	MValue float64 `json:"-"`
+	// MValueRaw is mvalue as sent. Some datatypes carry a string instead
+	// (on-demand vehicle "state") or an object (vehicle "position").
+	MValueRaw   json.RawMessage `json:"-"`
+	SCode       string          `json:"scode"`
+	SName       string          `json:"sname"`
+	SCoordinate Coordinate      `json:"scoordinate"`
+	SMetadata   map[string]any  `json:"smetadata"`
+	SOrigin     string          `json:"sorigin"`
+	SType       string          `json:"stype"`
+	SActive     bool            `json:"sactive"`
+	SAvailable  bool            `json:"savailable"`
 	// PCode/PName/PCoordinate identify the parent "station" a sensor
 	// belongs to — e.g. several TrafficSensor lane sensors (scode) sharing
 	// one physical road section and direction (pcode). Unused by feeds that
@@ -38,6 +46,35 @@ type Record struct {
 	PCode       string     `json:"pcode"`
 	PName       string     `json:"pname"`
 	PCoordinate Coordinate `json:"pcoordinate"`
+}
+
+// UnmarshalJSON keeps mvalue lenient: numeric values land in MValue, anything
+// else is left in MValueRaw instead of failing the whole response.
+func (r *Record) UnmarshalJSON(b []byte) error {
+	type plain Record
+	aux := struct {
+		*plain
+		MValue json.RawMessage `json:"mvalue"`
+	}{plain: (*plain)(r)}
+	if err := json.Unmarshal(b, &aux); err != nil {
+		return err
+	}
+	r.MValueRaw = aux.MValue
+	r.MValue = 0
+	var n float64
+	if json.Unmarshal(aux.MValue, &n) == nil {
+		r.MValue = n
+	}
+	return nil
+}
+
+// StringValue returns mvalue as a string, for datatypes that carry text.
+func (r Record) StringValue() (string, bool) {
+	var s string
+	if err := json.Unmarshal(r.MValueRaw, &s); err != nil {
+		return "", false
+	}
+	return s, true
 }
 
 type flatResponse struct {

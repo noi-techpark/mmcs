@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /** "On time" / "+1m" / "+1m 30s" / "+45s" — seconds only shown once delay drops under a minute. */
 export function formatDelay(delaySeconds: number): string {
   const totalSeconds = Math.round(delaySeconds)

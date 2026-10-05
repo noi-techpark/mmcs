@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import type { ComponentType } from 'react'
 import type { LayerOptionsPanelProps } from './types'
 

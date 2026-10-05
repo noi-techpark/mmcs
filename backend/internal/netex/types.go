@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package netex fetches and parses the province's NeTEx static schedule
 // export (lines, routes, stops, timetables) from STA's FTP server. Unlike
 // the realtime feeds, this is reference data: fetched at most once a week

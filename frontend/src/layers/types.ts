@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // A LayerDefinition is the unit of modularity for map overlays: each
 // layer type owns its own map rendering (mount/setData/setVisible/
 // applyOptions) and, optionally, its own sidebar options beyond the
@@ -44,6 +48,14 @@ export interface ColorRule {
   test: (props: Feature['properties']) => boolean
 }
 
+/** One icon offered to the overlap-displacement pass (see map/displace.ts). */
+export interface DisplaceItem {
+  /** Feature id, unique within the layer. */
+  id: string
+  /** Where the feature actually is. */
+  lngLat: [number, number]
+}
+
 /** One name-label bubble the overlay should try to place near a glyph. */
 export interface LabelTarget {
   id: string
@@ -68,6 +80,8 @@ export interface LayerDefinition {
   setVisible: (map: maplibregl.Map, visible: boolean) => void
   /** Applies option changes (opacity and any layer-specific knobs). */
   applyOptions: (map: maplibregl.Map, options: LayerOptions) => void
+  /** The color a feature is drawn with, from this layer's color rules — used wherever the UI must match the icon (e.g. the detail panel's status dot). */
+  featureColor?: (props: Feature['properties']) => string
   /** Optional layer-specific controls rendered below the opacity slider. */
   OptionsPanel?: ComponentType<LayerOptionsPanelProps>
   /**
@@ -84,6 +98,14 @@ export interface LayerDefinition {
    * is how a layer opts out per-instance without the overlay knowing why.
    */
   getLabelTargets?: (map: maplibregl.Map) => LabelTarget[]
+  /**
+   * Icons this layer offers to the overlap-displacement pass (see
+   * map/displace.ts). Empty when the layer doesn't take part, which is how a
+   * layer opts out per-instance (or is in clustering mode instead).
+   */
+  getDisplaceItems?: (map: maplibregl.Map) => DisplaceItem[]
+  /** Receives the displaced positions for this layer's features (id → lngLat); features not in the map draw at their real point. */
+  setDisplacement?: (map: maplibregl.Map, positions: Map<string, [number, number]>) => void
   /**
    * Every GL layer id this layer owns, for z-order control: MapView moves
    * these as one unit via map.moveLayer when the user drags this layer to

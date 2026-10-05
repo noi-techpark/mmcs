@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Reusable delay-range filter: a double-sided (min/max) slider over a
 // minutes scale, colored in four brackets — anticipation (early/negative
 // delay), punctual, small delay, high delay — using the exact same

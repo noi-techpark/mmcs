@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Shared delay-bracket thresholds and coloring: anything that visualizes or
 // filters vehicle delay (the bus/train icon gradient in ../layers/delayColor.ts,
 // and the bus delay-range filter in delayRangeFilter.tsx) must agree on

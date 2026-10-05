@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package store defines the storage abstractions used by the rest of the
 // backend. FeatureStore holds realtime, volatile layer state. Kept behind
 // an interface so an in-memory implementation (used now) can later be

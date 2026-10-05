@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { createPointLayer } from './pointLayer'
 
 // A single feature (Bolzano Airport) carrying the next 7 days of

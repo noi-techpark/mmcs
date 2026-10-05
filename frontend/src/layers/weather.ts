@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { createPointLayer } from './pointLayer'
 import { hslToHex } from '../map/colorGradient'
 import { PALETTE_SATURATION, PALETTE_LIGHTNESS, STATUS_COLORS } from '../map/colors'

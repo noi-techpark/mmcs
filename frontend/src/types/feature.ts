@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Mirrors backend/internal/model/feature.go — the common Feature shape.
 
 export type Layer =
@@ -10,6 +14,8 @@ export type Layer =
   | 'flight'
   | 'weather_station'
   | 'traffic_station'
+  | 'bike_parking'
+  | 'air_quality'
 
 export type Status = 'ok' | 'warning' | 'critical' | 'unknown'
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Small color-math helpers for building ColorRules: hex mixing (bucketed
 // gradients, e.g. occupancy-percent coloring — see layers/parking.ts) and
 // HSL-based hue derivation (a shared-S/L "color wheel" palette — see

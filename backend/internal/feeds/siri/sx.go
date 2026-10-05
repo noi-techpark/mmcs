@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package siri
 
 import (
@@ -6,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/noi-techpark/open-mmc/backend/internal/model"
@@ -25,29 +30,52 @@ type AffectedStopPoint struct {
 	PlaceName    string `json:"PlaceName"`
 }
 
-// ValidityPeriod is a single {StartTime,EndTime} span, except SIRI-lite
-// encodes it as a bare object when a situation has one period and as an
-// array when it has several (e.g. a recurring daily closure) — the same
-// value can arrive as either JSON shape, so this unmarshals both.
+// OneOrMany decodes a SIRI-lite JSON value that is a bare object when it
+// has a single element and an array when it has several — the same value
+// can arrive as either shape, so this unmarshals both into a slice.
+type OneOrMany[T any] []T
+
+func (o *OneOrMany[T]) UnmarshalJSON(data []byte) error {
+	var arr []T
+	if err := json.Unmarshal(data, &arr); err == nil {
+		*o = arr
+		return nil
+	}
+	var single T
+	if err := json.Unmarshal(data, &single); err != nil {
+		return err
+	}
+	*o = []T{single}
+	return nil
+}
+
+// ValidityPeriod is a single {StartTime,EndTime} span (e.g. a recurring
+// daily closure has several — see OneOrMany).
 type ValidityPeriod struct {
 	StartTime string `json:"StartTime"`
 	EndTime   string `json:"EndTime"`
 }
 
-type ValidityPeriods []ValidityPeriod
+type ValidityPeriods = OneOrMany[ValidityPeriod]
 
-func (p *ValidityPeriods) UnmarshalJSON(data []byte) error {
-	var arr []ValidityPeriod
-	if err := json.Unmarshal(data, &arr); err == nil {
-		*p = arr
-		return nil
-	}
-	var single ValidityPeriod
-	if err := json.Unmarshal(data, &single); err != nil {
-		return err
-	}
-	*p = []ValidityPeriod{single}
-	return nil
+// TextualContent is one passenger-information text block. The human-
+// readable wording (summary, description, ...) lives here, per language,
+// not on PtSituationElement itself.
+type TextualContent struct {
+	SummaryContent struct {
+		SummaryText []LangText `json:"SummaryText"`
+	} `json:"SummaryContent"`
+	DescriptionContent struct {
+		DescriptionText []LangText `json:"DescriptionText"`
+	} `json:"DescriptionContent"`
+}
+
+type PassengerInformationAction struct {
+	TextualContent OneOrMany[TextualContent] `json:"TextualContent"`
+}
+
+type PublishingAction struct {
+	PassengerInformationAction OneOrMany[PassengerInformationAction] `json:"PassengerInformationAction"`
 }
 
 type PtSituationElement struct {
@@ -65,6 +93,9 @@ type PtSituationElement struct {
 			AffectedStopPoint []AffectedStopPoint `json:"AffectedStopPoint"`
 		} `json:"StopPoints"`
 	} `json:"Affects"`
+	PublishingActions struct {
+		PublishingAction OneOrMany[PublishingAction] `json:"PublishingAction"`
+	} `json:"PublishingActions"`
 }
 
 type sxEnvelope struct {
@@ -97,18 +128,39 @@ func (c *LiteClient) FetchSX() ([]PtSituationElement, error) {
 	return env.ServiceDelivery.SituationExchangeDelivery.Situations.PtSituationElement, nil
 }
 
-// reasonText picks one language out of a ReasonName translation list,
-// preferring English, falling back to whichever comes first.
-func reasonText(reasons []LangText) string {
-	for _, r := range reasons {
-		if r.Lang == "EN" {
-			return r.Text
+// pickLang picks one language out of a translation list, preferring
+// English, falling back to whichever comes first.
+func pickLang(texts []LangText) string {
+	for _, t := range texts {
+		if t.Lang == "EN" {
+			return t.Text
 		}
 	}
-	if len(reasons) > 0 {
-		return reasons[0].Text
+	if len(texts) > 0 {
+		return texts[0].Text
 	}
 	return ""
+}
+
+// situationDescription gathers the English (else first-available) text of
+// every passenger-information block in the situation, dropping repeats —
+// the same wording is often published once per affected line or scope.
+func situationDescription(sit PtSituationElement) string {
+	var parts []string
+	seen := make(map[string]bool)
+	for _, pa := range sit.PublishingActions.PublishingAction {
+		for _, pia := range pa.PassengerInformationAction {
+			for _, tc := range pia.TextualContent {
+				text := strings.TrimSpace(strings.ReplaceAll(pickLang(tc.DescriptionContent.DescriptionText), "\r\n", "\n"))
+				if text == "" || seen[text] {
+					continue
+				}
+				seen[text] = true
+				parts = append(parts, text)
+			}
+		}
+	}
+	return strings.Join(parts, "\n\n")
 }
 
 // NormalizeSX converts a situation into a Feature, placed at the first of
@@ -142,10 +194,11 @@ func NormalizeSX(layer model.Layer, sit PtSituationElement, ns *netex.Store) (mo
 		"siri-sx:"+sit.SituationNumber,
 		layer,
 		model.Point(coord.Lon, coord.Lat),
-		reasonText(sit.ReasonName),
+		pickLang(sit.ReasonName),
 		"siri-lite:sx",
 		map[string]any{
-			"reason":        reasonText(sit.ReasonName),
+			"reason":        pickLang(sit.ReasonName),
+			"description":   situationDescription(sit),
 			"alertCause":    sit.AlertCause,
 			"progress":      sit.Progress,
 			"createdAt":     sit.CreationTime,

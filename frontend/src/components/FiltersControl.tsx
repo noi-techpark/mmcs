@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Generic "Filters…" control anchored top-left of the map. Fully
 // layer-agnostic: it just walks LAYER_DEFINITIONS for whichever ones
 // declare `filters` (see layers/types.ts) and renders each FilterInstance's

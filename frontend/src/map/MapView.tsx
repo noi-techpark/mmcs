@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { rankFeatures } from './pickFeature'
+import { toFeature } from '../layers/pointLayer'
+import { computeDisplacements, type DisplaceItem as Item } from './displace'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useFeatureStore } from '../store/featureStore'
@@ -60,31 +67,6 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
   const connect = useFeatureStore((s) => s.connect)
   const [mapReady, setMapReady] = useState(false)
   const [placements, setPlacements] = useState<Placement[]>([])
-  // Bumped on every recompute and used as the pan-tracking <g>'s `key`, so
-  // React unmounts the old (possibly still-panned) node and mounts a fresh,
-  // transform-less one in the very same commit as the new placements —
-  // rather than us imperatively clearing a lingering transform and hoping
-  // it lands in the same paint as React's own DOM update for the new
-  // positions. That imperative approach could win the race either way:
-  // clearing too early (synchronously, before React's batched/async commit)
-  // flashed the old placements at zero-transform for a frame; deferring it
-  // (rAF, useLayoutEffect) then risked landing a frame *after* instead,
-  // since MapLibre's 'idle' can itself fire synchronously from inside our
-  // own effects, which made the ordering genuinely unpredictable. A key
-  // change guarantees old-node-teardown and new-content-mount happen
-  // atomically, so there's no window where they can be out of sync.
-  const [recomputeGen, setRecomputeGen] = useState(0)
-  const panGroupRef = useRef<SVGGElement>(null)
-  // The camera center + its screen position at the moment `placements` was
-  // last computed. Panning translates every placement by exactly the same
-  // screen delta, so instead of re-running collision placement (or even
-  // just re-projecting every label) on each of the map's own render frames,
-  // we set one CSS transform on the wrapping <g> — imperatively, bypassing
-  // React entirely for this hot path, which is what was still costing a
-  // frame of lag over a real GL layer. Doesn't account for zoom (labels
-  // won't rescale mid-gesture), same simplification the old per-placement
-  // reprojection made; corrected on the next 'idle' recompute.
-  const panBaseRef = useRef<{ lngLat: maplibregl.LngLat; pixel: maplibregl.Point } | null>(null)
   const onFeatureSelectRef = useRef(onFeatureSelect)
   onFeatureSelectRef.current = onFeatureSelect
 
@@ -127,6 +109,17 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
 
       const ctx = { onSelectFeature: (f: Feature) => onFeatureSelectRef.current(f) }
       for (const def of LAYER_DEFINITIONS) def.mount(map, ctx)
+
+      // One click handler for all icons: picks the topmost icon under the
+      // cursor (see map/pickFeature.ts). Cluster bubbles are skipped here —
+      // their own handler zooms into them.
+      map.on('click', (e) => {
+        const layerIds = LAYER_DEFINITIONS.flatMap((d) => d.iconLayerIds ?? []).filter((id) => map.getLayer(id))
+        if (layerIds.length === 0) return
+        const [top] = rankFeatures(map, map.queryRenderedFeatures(e.point, { layers: layerIds }))
+        if (!top || top.properties?.point_count != null) return
+        ctx.onSelectFeature(toFeature(top))
+      })
       setMapReady(true)
     })
 
@@ -198,18 +191,14 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
     source.setData({ type: 'FeatureCollection', features })
   }, [selectedJourney, mapReady])
 
-  // Name-label placement: recompute whenever the map settles after a
-  // camera move or a data/paint update ('idle' covers both), and
-  // immediately when the controls driving it change.
+  // Name-label layout: computed when the map settles and when data or the
+  // controls change. During a gesture the layout is held fixed and each
+  // bubble just follows its icon (see placeLabels), so bubbles don't flip
+  // between candidate positions as the map moves.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !mapReady) return
-
-    const recompute = () => {
-      setPlacements(computePlacements({ map, visibleLayers, layerOptions }))
-      setRecomputeGen((g) => g + 1)
-      panBaseRef.current = { lngLat: map.getCenter(), pixel: map.project(map.getCenter()) }
-    }
+    const recompute = () => setPlacements(computePlacements({ map, visibleLayers, layerOptions }))
     recompute()
     map.on('idle', recompute)
     return () => {
@@ -217,36 +206,78 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
     }
   }, [mapReady, visibleLayers, layerOptions, layers])
 
-  // Keep bubbles/lines glued to their glyphs during continuous pan/zoom:
-  // 'idle' above only fires once the gesture settles, so without this the
-  // SVG overlay would freeze mid-drag while the GL canvas keeps moving.
-  // 'render' fires once per frame the GL canvas actually repaints. Rather
-  // than re-deriving and re-rendering every placement through React on each
-  // of those frames (which was still a frame of lag behind the canvas),
-  // just slide the whole overlay by the same screen delta the camera
-  // moved — a single DOM write, no React involved, so it rides along with
-  // the canvas instead of trailing it.
+  // Each bubble is positioned relative to where its icon was when the layout
+  // was computed. Every render frame, shift it by the icon's current screen
+  // delta. Done in the same 'render' event the GL canvas draws in, so bubbles
+  // and icons move together with no React commit in between.
+  const labelGroupRef = useRef<SVGGElement>(null)
+  const placeLabels = () => {
+    const map = mapRef.current
+    const group = labelGroupRef.current
+    if (!map || !group) return
+    for (const el of Array.from(group.children)) {
+      const lng = Number(el.getAttribute('data-lng'))
+      const lat = Number(el.getAttribute('data-lat'))
+      const p = map.project([lng, lat])
+      const x0 = Number(el.getAttribute('data-x0'))
+      const y0 = Number(el.getAttribute('data-y0'))
+      el.setAttribute('transform', `translate(${p.x - x0}, ${p.y - y0})`)
+    }
+  }
+  // Before paint, so a freshly computed layout never shows at a stale offset.
+  useLayoutEffect(() => {
+    placeLabels()
+  }, [placements])
   useEffect(() => {
     const map = mapRef.current
     if (!map || !mapReady) return
-
-    const onRender = () => {
-      const base = panBaseRef.current
-      if (!base) return
-      const pixel = map.project(base.lngLat)
-      const dx = pixel.x - base.pixel.x
-      const dy = pixel.y - base.pixel.y
-      // The CSS transform *property* (as opposed to the SVG "transform"
-      // *attribute*) lets the browser move this as a compositor-only step
-      // instead of re-running SVG layout every frame — the same mechanism
-      // that makes CSS transform animations smooth.
-      if (panGroupRef.current) panGroupRef.current.style.transform = `translate(${dx}px, ${dy}px)`
-    }
-    map.on('render', onRender)
+    map.on('render', placeLabels)
     return () => {
-      map.off('render', onRender)
+      map.off('render', placeLabels)
     }
   }, [mapReady])
+
+  // Overlapping icons are nudged apart after every settle (idle covers zoom
+  // and data changes). Pans don't change relative screen positions, so the
+  // result only actually changes on zoom or data; setDisplacement skips the
+  // GL upload when it's the same as before.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady) return
+    const apply = () => {
+      const participants = LAYER_DEFINITIONS.filter((d) => d.getDisplaceItems && d.setDisplacement)
+      const perLayer = participants.map((d) => ({ def: d, items: d.getDisplaceItems?.(map) ?? [] }))
+      const all: Item[] = perLayer.flatMap(({ def, items }) => items.map((i) => ({ key: `${def.id}|${i.id}`, lngLat: i.lngLat })))
+      const moved = computeDisplacements(map, all)
+      for (const { def, items } of perLayer) {
+        const positions = new Map<string, [number, number]>()
+        for (const i of items) {
+          const ll = moved.get(`${def.id}|${i.id}`)
+          if (ll) positions.set(i.id, ll)
+        }
+        def.setDisplacement?.(map, positions)
+      }
+    }
+    // During a gesture 'move' fires every frame; coalesce to one pass per
+    // animation frame so the nudge tracks zoom in step with the map.
+    let frame = 0
+    const scheduled = () => {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        apply()
+      })
+    }
+    apply()
+    map.on('move', scheduled)
+    map.on('idle', apply)
+    return () => {
+      map.off('move', scheduled)
+      map.off('idle', apply)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [mapReady, layers, visibleLayers, layerOptions])
+
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -255,11 +286,11 @@ export function MapView({ visibleLayers, layerOptions, layerOrder, onFeatureSele
         data-testid="label-overlay"
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
       >
-        <g key={recomputeGen} ref={panGroupRef}>
+        <g ref={labelGroupRef}>
         {placements.map((p) => {
           const edge = edgePoint(p.dot, p.rect)
           return (
-            <g key={p.id} opacity={p.opacity}>
+            <g key={p.id} opacity={p.opacity} data-lng={p.lngLat[0]} data-lat={p.lngLat[1]} data-x0={p.dot.x} data-y0={p.dot.y}>
               <line x1={p.dot.x} y1={p.dot.y} x2={edge.x} y2={edge.y} stroke={p.color} strokeWidth={1.5} />
               <g
                 onClick={() => onFeatureSelectRef.current(p.feature)}

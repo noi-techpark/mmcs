@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Default visualizer for point-feature layers (parking, e-charging,
 // vehicles, ...): renders individual features as color-coded icons, with
 // two independently toggleable options:
@@ -28,7 +32,7 @@ import * as maplibregl from 'maplibre-gl'
 import { STATUS_COLORS, STATUS_COLOR_RULES } from '../map/colors'
 import { registerIcons, iconImageId, ICON_RENDER_SCALE } from '../map/icons'
 import { createPointLayerOptions } from './PointLayerOptions'
-import type { LayerDefinition, LayerOptions, LabelTarget, ColorRule } from './types'
+import type { LayerDefinition, LayerOptions, LabelTarget, ColorRule, DisplaceItem } from './types'
 import type { Feature, Layer } from '../types/feature'
 import type { FilterInstance } from '../filters/types'
 
@@ -36,7 +40,7 @@ const CLUSTER_RADIUS = 50
 const CLUSTER_MAX_ZOOM = 15
 
 /** Rebuilds our Feature shape from a rendered GL feature (data/ref come back as objects or JSON strings depending on source). */
-function toFeature(f: maplibregl.MapGeoJSONFeature): Feature {
+export function toFeature(f: maplibregl.MapGeoJSONFeature): Feature {
   const props = f.properties as Record<string, unknown>
   const data = typeof props.data === 'string' ? JSON.parse(props.data) : (props.data ?? {})
   const ref = typeof props.ref === 'string' ? JSON.parse(props.ref) : props.ref
@@ -58,6 +62,8 @@ export function createPointLayer(
   tooltip?: (props: Feature['properties']) => string,
   /** This layer's filter instances (see filters/types.ts) — rendered by the generic FiltersControl UI, applied here before features reach the map source. */
   filters: FilterInstance<any>[] = [],
+  /** When set, icons that would overlap on screen are nudged to the nearest free spot (see map/displace.ts), but only at this zoom or above. null = never. Isolated icons never move. */
+  displaceFromZoom: number | null = null,
 ): LayerDefinition {
   const clusteredSourceId = id
   const flatSourceId = `${id}-flat`
@@ -115,16 +121,27 @@ export function createPointLayer(
   // changes — see pushData.
   let latestFeatures: Feature[] = []
   let currentFilterValues: Record<string, unknown> = {}
+  // Positions the overlap pass moved features to (see setDisplacement). Only
+  // drawn positions change; the features' real coordinates stay in latestFeatures.
+  let displacement = new Map<string, [number, number]>()
+  let displacementSignature = ''
 
   function passesFilters(feature: Feature): boolean {
     return filters.every((f) => f.test(feature, currentFilterValues[f.id] ?? f.defaultValue))
   }
 
   function pushData(map: maplibregl.Map) {
-    const tagged = latestFeatures.filter(passesFilters).map((f) => ({
-      ...f,
-      properties: { ...f.properties, _colorKey: classify(f.properties).key },
-    }))
+    const tagged = latestFeatures.filter(passesFilters).map((f) => {
+      const rule = classify(f.properties)
+      // _sortKey is the rule's score: the same order the GL symbol-sort-key
+      // draws icons in, so click picking can rank stacked icons identically.
+      const displaced = displacement.get(f.id)
+      return {
+        ...f,
+        ...(displaced ? { geometry: { type: 'Point' as const, coordinates: displaced } } : {}),
+        properties: { ...f.properties, _colorKey: rule.key, _sortKey: rule.score ?? 0 },
+      }
+    })
     const fc = { type: 'FeatureCollection' as const, features: tagged }
     ;(map.getSource(clusteredSourceId) as maplibregl.GeoJSONSource | undefined)?.setData(fc)
     ;(map.getSource(flatSourceId) as maplibregl.GeoJSONSource | undefined)?.setData(fc)
@@ -179,12 +196,13 @@ export function createPointLayer(
       ...overrides,
     },
     OptionsPanel: createPointLayerOptions(hasGradientOpacity),
+    featureColor: (props) => classify(props).color,
     iconLayerIds: [clusterLayerId, clusteredPointsLayerId, flatPointsLayerId],
     mapLayerIds: [clusterLayerId, countLayerId, clusteredPointsLayerId, flatPointsLayerId],
     defaultVisible,
     filters: filters.length > 0 ? filters : undefined,
 
-    mount(map, ctx) {
+    mount(map) {
       registerIcons(map, id, colorRules)
 
       const emptyFC = { type: 'FeatureCollection' as const, features: [] }
@@ -251,11 +269,9 @@ export function createPointLayer(
       map.on('mouseenter', clusterLayerId, () => (map.getCanvas().style.cursor = 'pointer'))
       map.on('mouseleave', clusterLayerId, () => (map.getCanvas().style.cursor = ''))
 
-      const selectFeature = (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
-        const f = e.features?.[0]
-        if (!f) return
-        ctx.onSelectFeature(toFeature(f))
-      }
+      // Icon clicks are not handled here: every layer's handler would fire for
+      // the same spot and the last one won, so MapView picks the topmost
+      // icon across all layers (see map/pickFeature.ts) instead.
       // Hover popup, one instance reused across every point in this layer
       // rather than per-feature — cheap to move, and only one can be open
       // (under the cursor) at a time anyway.
@@ -263,7 +279,6 @@ export function createPointLayer(
         ? new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 14 })
         : null
       for (const layerId of [clusteredPointsLayerId, flatPointsLayerId]) {
-        map.on('click', layerId, selectFeature)
         map.on('mouseenter', layerId, (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
           map.getCanvas().style.cursor = 'pointer'
           const f = e.features?.[0]
@@ -308,6 +323,23 @@ export function createPointLayer(
       map.setPaintProperty(flatPointsLayerId, 'icon-opacity', dynamicOpacityOn ? dynamicOpacityExpr : opacity)
       map.setPaintProperty(clusterLayerId, 'circle-opacity', 0.85 * opacity)
       map.setPaintProperty(countLayerId, 'text-opacity', opacity)
+    },
+
+    getDisplaceItems(map): DisplaceItem[] {
+      if (displaceFromZoom == null || !currentlyVisible || clusteringEnabled || map.getZoom() < displaceFromZoom) return []
+      return latestFeatures.filter(passesFilters).map((f) => ({
+        id: f.id,
+        lngLat: [f.geometry.coordinates[0], f.geometry.coordinates[1]],
+      }))
+    },
+
+    setDisplacement(map, positions) {
+      // Called on every idle; skip the GL upload when nothing moved.
+      const signature = [...positions].map(([id, ll]) => `${id}:${ll[0]},${ll[1]}`).sort().join(';')
+      if (signature === displacementSignature) return
+      displacementSignature = signature
+      displacement = positions
+      pushData(map)
     },
 
     getLabelTargets(map): LabelTarget[] {

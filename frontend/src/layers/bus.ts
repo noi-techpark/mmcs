@@ -1,4 +1,9 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { createPointLayer } from './pointLayer'
+import { DISPLACE_FROM_ZOOM } from '../map/displace'
 import { DELAY_COLOR_RULES } from './delayColor'
 import { vehicleTooltip } from './vehicleTooltip'
 import { createDelayRangeFilter } from '../filters/delayRangeFilter'
@@ -18,4 +23,5 @@ export const busLayer = createPointLayer(
   true,
   vehicleTooltip,
   [createDelayRangeFilter({ id: 'delay', label: 'Delay', initialLo: PUNCTUAL_TO_SMALL_MIN })],
+  DISPLACE_FROM_ZOOM,
 )

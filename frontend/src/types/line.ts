@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Mirrors backend/internal/netex/types.go's Journey — the specific
 // scheduled trip a live vehicle is running, fetched on demand from
 // /api/journey (not pushed over the realtime WS like Feature data, since

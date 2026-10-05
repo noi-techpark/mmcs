@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { create } from 'zustand'
 import type { Feature, Layer, ServerMessage } from '../types/feature'
 
@@ -17,6 +21,8 @@ const emptyLayers = (): Record<Layer, Map<string, Feature>> => ({
   flight: new Map(),
   weather_station: new Map(),
   traffic_station: new Map(),
+  bike_parking: new Map(),
+  air_quality: new Map(),
 })
 
 export const useFeatureStore = create<FeatureState>((set, get) => ({

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { copyFileSync, mkdirSync } from 'node:fs'

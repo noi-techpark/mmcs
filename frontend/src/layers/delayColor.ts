@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 NOI Techpark
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { STATUS_COLORS } from '../map/colors'
 import { SMALL_TO_HIGH_MIN, delayGradientColor } from '../filters/delayBrackets'
 import type { ColorRule } from './types'

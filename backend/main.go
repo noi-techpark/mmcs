@@ -69,13 +69,20 @@ func main() {
 	// legitimately up to an hour old before the next one arrives — the
 	// default 30-minute window would drop most stations between updates.
 	fs.SetMaxAge(model.LayerAirQuality, 3*time.Hour)
+	// Ecocounter bike-counter readings (see odh.PollBikeCounter) were
+	// observed with ~13h of real-world publish lag between mvalidtime and
+	// appearing as "latest" despite an hourly (mperiod=3600) sampling
+	// period — the default 30-minute window rejected every reading as
+	// stale on arrival. Also covers BikeParking, sharing this layer; that
+	// feed is near-real-time, so the wider window doesn't cost it anything.
+	fs.SetMaxAge(model.LayerBicycle, 24*time.Hour)
 
 	odhClient := odh.NewClient()
 	go odh.Poll(ctx, odhClient, "parking", odh.ParkingURL, 60*time.Second, odh.NormalizeParking, fs)
 	go odh.Poll(ctx, odhClient, "echarging", odh.EChargingURL, 60*time.Second, odh.NormalizeECharging, fs)
 	go odh.PollWeather(ctx, odhClient, 5*time.Minute, fs)
 	go odh.Poll(ctx, odhClient, "bike-parking", odh.BikeParkingURL, 60*time.Second, odh.NormalizeBikeParking, fs)
-	go odh.Poll(ctx, odhClient, "bike-counter", odh.BikeCounterURL, 5*time.Minute, odh.NormalizeBikeCounter, fs)
+	go odh.PollBikeCounter(ctx, odhClient, 5*time.Minute, fs)
 	go odh.PollOnDemand(ctx, odhClient, 60*time.Second, fs)
 	go odh.Poll(ctx, odhClient, "air-quality", odh.AirQualityURL, 5*time.Minute, odh.NormalizeAirQuality, fs)
 	go odh.Poll(ctx, odhClient, "carsharing", odh.CarsharingURL, 60*time.Second, odh.NormalizeCarsharing, fs)

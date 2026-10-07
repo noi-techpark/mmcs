@@ -60,9 +60,11 @@ export function LayerIcon({ layer, color = '#e8e8e8' }: { layer: Layer; color?: 
           <path d="M34 46 H84 M34 62 H94 M34 78 H78" stroke="#1c1e22" strokeWidth="6" strokeLinecap="round" />
         </svg>
       )
-    case 'bike_parking':
+    case 'bicycle':
       // Mini mirror of the map glyph (map/icons.ts bikeParkingIcon): a
-      // teardrop pin with a bicycle cut out of it.
+      // teardrop pin with a bicycle cut out of it. Covers both the parking
+      // and counter sub-kinds merged into this layer (map/icons.ts
+      // bicycleIcon) — the sidebar legend doesn't distinguish them.
       return (
         <svg width="16" height="16" viewBox="0 0 128 128" aria-hidden="true">
           <path d="M64 116 C52 100 26 80 26 52 A38 38 0 0 1 102 52 C102 80 76 100 64 116 Z" fill={color} />
@@ -71,6 +73,40 @@ export function LayerIcon({ layer, color = '#e8e8e8' }: { layer: Layer; color?: 
             <circle cx="76" cy="58" r="9" />
             <path d="M52 58 L63 45 L76 58 M63 45 L70 40" />
           </g>
+        </svg>
+      )
+    case 'carsharing_station':
+      // Mini mirror of the map glyph (map/icons.ts carsharingIcon): a
+      // rounded square (echoing the parking "P") with a car silhouette.
+      return (
+        <svg width="16" height="16" viewBox="0 0 128 128" aria-hidden="true">
+          <rect x="14" y="14" width="100" height="100" rx="20" fill={color} />
+          <path
+            d="M38 58 L46 42 Q49 38 54 38 H74 Q79 38 82 42 L90 58 Z M30 58 H98 V80 H30 Z"
+            fill="#1c1e22"
+          />
+          <circle cx="44" cy="80" r="8" fill={color} />
+          <circle cx="84" cy="80" r="8" fill={color} />
+        </svg>
+      )
+    case 'on_demand_vm_vehicle':
+      // Mini mirror of the map glyph (map/icons.ts shuttleIcon): a narrow
+      // van body with one rear window band, distinct from both the taxi
+      // (bare car, no badge) and the bus (wide body, long window band).
+      return (
+        <svg width="16" height="16" viewBox="0 0 128 128" aria-hidden="true">
+          <rect x="22" y="20" width="84" height="82" rx="14" fill={color} />
+          <rect x="34" y="32" width="60" height="24" rx="5" fill="#1c1e22" />
+          <circle cx="42" cy="102" r="13" fill="#1c1e22" />
+          <circle cx="86" cy="102" r="13" fill="#1c1e22" />
+        </svg>
+      )
+    case 'traffic_segment':
+      // A short diagonal road-section stroke — distinct from the point
+      // traffic diamond, since this layer renders LineStrings, not icons.
+      return (
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M2 13 L13 3" stroke={color} strokeWidth="3" strokeLinecap="round" />
         </svg>
       )
     case 'bus_vehicle':

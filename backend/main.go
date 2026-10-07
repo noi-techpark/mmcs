@@ -17,6 +17,7 @@ import (
 	"github.com/noi-techpark/open-mmc/backend/internal/feeds/gtfs"
 	"github.com/noi-techpark/open-mmc/backend/internal/feeds/odh"
 	"github.com/noi-techpark/open-mmc/backend/internal/feeds/siri"
+	"github.com/noi-techpark/open-mmc/backend/internal/feeds/tourism"
 	"github.com/noi-techpark/open-mmc/backend/internal/model"
 	"github.com/noi-techpark/open-mmc/backend/internal/netex"
 	"github.com/noi-techpark/open-mmc/backend/internal/odhauth"
@@ -27,6 +28,11 @@ import (
 const siriBaseURL = "https://siri.api.opendatahub.com"
 const siriLiteBaseURL = "https://efa.sta.bz.it"
 const skyalpsGTFSURL = "https://gtfs.api.opendatahub.com/v1/dataset/skyalps-flight-data/raw"
+
+// onDemandVMURL is STA's demand-responsive-transport SIRI-VM feed (dial-a-
+// ride vehicles) — a single fixed endpoint, not the baseURL+datasetId
+// convention the Anshar siriClient uses for trains (see siri.PollAt).
+const onDemandVMURL = "https://ssl.autoroute.it/apps/stadrttest/ws/siri/vm"
 
 const bolzanoAirportLon = 11.3264
 const bolzanoAirportLat = 46.4602
@@ -56,6 +62,9 @@ func main() {
 	// that) — the default 30-minute window rejected every reading as
 	// stale on arrival.
 	fs.SetMaxAge(model.LayerTraffic, 2*time.Hour)
+	// LinkStation travel-time segments come from the same A22 pipeline and
+	// observe the same publish lag as the point sensors above.
+	fs.SetMaxAge(model.LayerTrafficSegment, 2*time.Hour)
 	// EAQI ratings are hourly averages (mperiod=3600), so a reading is
 	// legitimately up to an hour old before the next one arrives — the
 	// default 30-minute window would drop most stations between updates.
@@ -66,11 +75,15 @@ func main() {
 	go odh.Poll(ctx, odhClient, "echarging", odh.EChargingURL, 60*time.Second, odh.NormalizeECharging, fs)
 	go odh.PollWeather(ctx, odhClient, 5*time.Minute, fs)
 	go odh.Poll(ctx, odhClient, "bike-parking", odh.BikeParkingURL, 60*time.Second, odh.NormalizeBikeParking, fs)
+	go odh.Poll(ctx, odhClient, "bike-counter", odh.BikeCounterURL, 5*time.Minute, odh.NormalizeBikeCounter, fs)
 	go odh.PollOnDemand(ctx, odhClient, 60*time.Second, fs)
 	go odh.Poll(ctx, odhClient, "air-quality", odh.AirQualityURL, 5*time.Minute, odh.NormalizeAirQuality, fs)
+	go odh.Poll(ctx, odhClient, "carsharing", odh.CarsharingURL, 60*time.Second, odh.NormalizeCarsharing, fs)
+	go odh.PollLinkTraffic(ctx, odhClient, 60*time.Second, fs)
 
 	siriClient := siri.NewClient(siriBaseURL)
 	go siri.Poll(ctx, siriClient, "SAD-trains", model.LayerTrainVeh, 15*time.Second, fs)
+	go siri.PollAt(ctx, siriClient, onDemandVMURL, "sta-drt", model.LayerOnDemandVM, 15*time.Second, fs)
 
 	siriLiteClient := siri.NewLiteClient(siriLiteBaseURL)
 	go siri.PollLite(ctx, siriLiteClient, "sta-bus", model.LayerBusVeh, 15*time.Second, fs)
@@ -92,6 +105,9 @@ func main() {
 	}
 
 	go siri.PollSX(ctx, siriLiteClient, model.LayerBusAlert, 60*time.Second, fs, netexStore)
+
+	tourismClient := tourism.NewClient()
+	go tourism.PollAnnouncements(ctx, tourismClient, []string{"a22", "PROVINCE_BZ"}, model.LayerBusAlert, 5*time.Minute, fs)
 
 	go runStaleSweeper(ctx, fs)
 

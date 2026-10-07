@@ -57,7 +57,19 @@ func NewClient(baseURL string) *Client {
 // FetchVM fetches VehicleActivity records for the given SIRI-VM datasetId.
 func (c *Client) FetchVM(datasetID string) ([]VehicleActivity, error) {
 	u := fmt.Sprintf("%s/v1/rest/vm/?datasetId=%s", c.baseURL, url.QueryEscape(datasetID))
-	resp, err := c.httpClient.Get(u)
+	return fetchVM(c.httpClient, u)
+}
+
+// FetchVMAt fetches VehicleActivity records from a complete, already-formed
+// SIRI-VM URL, for providers that don't follow the Anshar
+// baseURL+"/v1/rest/vm/?datasetId=" convention FetchVM assumes (e.g. a
+// single fixed endpoint with no datasetId query param).
+func (c *Client) FetchVMAt(fullURL string) ([]VehicleActivity, error) {
+	return fetchVM(c.httpClient, fullURL)
+}
+
+func fetchVM(httpClient *http.Client, u string) ([]VehicleActivity, error) {
+	resp, err := httpClient.Get(u)
 	if err != nil {
 		return nil, fmt.Errorf("siri: fetch %s: %w", u, err)
 	}

@@ -5,7 +5,8 @@
 import { Fragment, useState } from 'react'
 import { STATUS_COLORS, STATUS_LABELS } from '../map/colors'
 import { LAYER_DEFINITIONS } from '../layers/definitions'
-import { TRAFFIC_SPEED_BAND_LABELS } from '../layers/traffic'
+import { TRAFFIC_SPEED_BAND_LABELS, TRAFFIC_VOLUME_BAND_LABELS } from '../layers/traffic'
+import { LINK_TRAFFIC_LABELS } from '../layers/trafficSegment'
 import { AIR_QUALITY_BANDS } from '../layers/airQuality'
 import { LayerIcon } from './LayerIcon'
 import { relativeTime, formatDelay } from '../util/time'
@@ -194,7 +195,8 @@ function formatValue(value: unknown): string {
 function statusValueText(layer: string, data: Record<string, unknown>): string | null {
   switch (layer) {
     case 'train_vehicle':
-    case 'bus_vehicle': {
+    case 'bus_vehicle':
+    case 'on_demand_vm_vehicle': {
       const delaySeconds = data.delaySeconds
       if (typeof delaySeconds !== 'number') return null
       return formatDelay(delaySeconds)
@@ -213,10 +215,19 @@ function statusValueText(layer: string, data: Record<string, unknown>): string |
       const band = AIR_QUALITY_BANDS.find((b) => b.key === data.rating)
       return band ? `${band.label} · NO₂ ${band.range}` : null
     }
-    case 'bike_parking': {
+    case 'bicycle': {
+      if (data.kind === 'counter') {
+        const count = data.count
+        return typeof count === 'number' ? `${count} per period` : null
+      }
       const free = data.free
       if (typeof free !== 'number') return null
       return `${free} free`
+    }
+    case 'carsharing_station': {
+      const available = data.available
+      if (typeof available !== 'number') return null
+      return `${available} available`
     }
     case 'on_demand_vehicle': {
       const state = data.state
@@ -224,8 +235,13 @@ function statusValueText(layer: string, data: Record<string, unknown>): string |
       return state.charAt(0) + state.slice(1).toLowerCase()
     }
     case 'traffic_station': {
-      const band = data.speedBand
-      return typeof band === 'string' ? (TRAFFIC_SPEED_BAND_LABELS[band] ?? null) : null
+      const band = data.speedBand ?? data.volumeBand
+      if (typeof band !== 'string') return null
+      return TRAFFIC_SPEED_BAND_LABELS[band] ?? TRAFFIC_VOLUME_BAND_LABELS[band] ?? null
+    }
+    case 'traffic_segment': {
+      const desc = data.lightTraffic
+      return typeof desc === 'string' ? (LINK_TRAFFIC_LABELS[desc] ?? null) : null
     }
     case 'weather_station': {
       const { temperatureC, precipitationMM } = data

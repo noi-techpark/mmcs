@@ -44,11 +44,12 @@ func NormalizeBikeParking(r Record) (model.Feature, bool) {
 
 	f := model.NewFeature(
 		fmt.Sprintf("odh:bike_parking:%s", r.SCode),
-		model.LayerBikeParking,
+		model.LayerBicycle,
 		model.Point(r.SCoordinate.X, r.SCoordinate.Y),
 		r.SName,
 		"odh:"+r.SOrigin,
 		map[string]any{
+			"kind":     "parking",
 			"capacity": capacity,
 			"free":     free,
 		},

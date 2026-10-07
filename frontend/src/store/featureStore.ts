@@ -18,10 +18,13 @@ const emptyLayers = (): Record<Layer, Map<string, Feature>> => ({
   bus_vehicle: new Map(),
   bus_alert: new Map(),
   on_demand_vehicle: new Map(),
+  on_demand_vm_vehicle: new Map(),
   flight: new Map(),
   weather_station: new Map(),
   traffic_station: new Map(),
-  bike_parking: new Map(),
+  traffic_segment: new Map(),
+  bicycle: new Map(),
+  carsharing_station: new Map(),
   air_quality: new Map(),
 })
 

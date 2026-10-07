@@ -329,7 +329,10 @@ export function createPointLayer(
       if (displaceFromZoom == null || !currentlyVisible || clusteringEnabled || map.getZoom() < displaceFromZoom) return []
       return latestFeatures.filter(passesFilters).map((f) => ({
         id: f.id,
-        lngLat: [f.geometry.coordinates[0], f.geometry.coordinates[1]],
+        // This factory only ever handles Point features — never the
+        // LineString traffic-segment layer, which implements LayerDefinition
+        // directly instead of going through createPointLayer.
+        lngLat: f.geometry.coordinates as [number, number],
       }))
     },
 

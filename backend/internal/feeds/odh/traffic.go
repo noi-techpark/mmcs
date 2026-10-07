@@ -28,6 +28,49 @@ const TrafficURL = "https://mobility.api.opendatahub.com/v2/flat/TrafficSensor/"
 	"Nr.%20Light%20Vehicles,Average%20Speed%20Light%20Vehicles" +
 	"/latest?limit=-1&distinct=true&shownull=false&where=sorigin.eq.A22,sactive.eq.true"
 
+// MeranoTrafficURL fetches the Municipality of Merano's TrafficSensor
+// stations. Unlike A22, Merano carries no speed datatype at all — only a
+// per-period vehicle-transit count ("total-transits nr") — so these
+// stations are classified by volume band (see trafficVolumeBand), not
+// speed band, and merged into the same LayerTraffic as A22 via a distinct
+// Data["volumeBand"] field. As of writing ODH has registered these 54
+// stations but never actually published a measurement for either of their
+// datatypes (temperature, total-transits nr) — this feed is wired up ready
+// for when that starts, not because it's already live.
+const MeranoTrafficURL = "https://mobility.api.opendatahub.com/v2/flat/TrafficSensor/" +
+	"total-transits%20nr" +
+	"/latest?limit=-1&distinct=true&shownull=false&where=sorigin.eq.%22Municipality%20of%20Merano%22,sactive.eq.true"
+
+// Volume bands for Merano's per-period transit count. There is no live data
+// yet to calibrate these against (see MeranoTrafficURL) — thresholds are a
+// provisional guess at "a quiet local street vs. a busy one" and should be
+// revisited once real counts start arriving.
+const (
+	trafficVolumeLowBelow      = 20.0
+	trafficVolumeModerateBelow = 60.0
+	trafficVolumeHighBelow     = 150.0
+)
+
+const (
+	TrafficVolumeLow      = "low"
+	TrafficVolumeModerate = "moderate"
+	TrafficVolumeHigh     = "high"
+	TrafficVolumeVeryHigh = "very-high"
+)
+
+func trafficVolumeBand(count float64) string {
+	switch {
+	case count < trafficVolumeLowBelow:
+		return TrafficVolumeLow
+	case count < trafficVolumeModerateBelow:
+		return TrafficVolumeModerate
+	case count < trafficVolumeHighBelow:
+		return TrafficVolumeHigh
+	default:
+		return TrafficVolumeVeryHigh
+	}
+}
+
 // trafficNoDataSentinel is A22's placeholder for "no vehicles of this class
 // in this period" on the average-speed datatypes (observed as -999).
 const trafficNoDataSentinel = -999.0
@@ -196,6 +239,31 @@ func PollTraffic(ctx context.Context, client *Client, interval time.Duration, fs
 			f.Properties.RecordedAt = d.recordedAt
 			fs.Upsert(f)
 			n++
+		}
+
+		meranoRecords, err := client.FetchFlat(MeranoTrafficURL)
+		if err != nil {
+			log.Printf("odh[traffic-merano]: %v", err)
+		} else {
+			for _, r := range meranoRecords {
+				recordedAt, err := ParseValidTime(r.MValidTime)
+				if err != nil {
+					continue
+				}
+				band := trafficVolumeBand(r.MValue)
+				f := model.NewFeature(
+					fmt.Sprintf("odh:traffic-merano:%s", r.SCode),
+					model.LayerTraffic,
+					model.Point(r.SCoordinate.X, r.SCoordinate.Y),
+					r.SName,
+					"odh:"+r.SOrigin,
+					map[string]any{"volumeBand": band, "transitCount": r.MValue},
+				)
+				f.Properties.Status = model.StatusUnknown
+				f.Properties.RecordedAt = recordedAt
+				fs.Upsert(f)
+				n++
+			}
 		}
 		log.Printf("odh[traffic]: upserted %d features", n)
 	}

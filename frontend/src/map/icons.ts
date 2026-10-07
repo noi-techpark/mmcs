@@ -221,6 +221,86 @@ function alertIcon(color: string): ImageData {
   return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
 }
 
+// Same warning-triangle badge as alertIcon, but with a road-work glyph
+// (diagonal hazard stripes) instead of the exclamation mark — tagged
+// "traffic-event:road-work" announcements (see layers/situations.ts), kept
+// in yellow rather than the generic alert's orange so it reads as
+// "planned work", not "danger".
+function roadworkIcon(color: string): ImageData {
+  const ctx = newCtx()
+  withOutline(ctx, color, () => {
+    ctx.beginPath()
+    ctx.moveTo(64, 14)
+    ctx.lineTo(116, 108)
+    ctx.lineTo(12, 108)
+    ctx.closePath()
+  })
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 9
+  ctx.lineCap = 'round'
+  for (const dx of [-16, 0, 16]) {
+    ctx.beginPath()
+    ctx.moveTo(50 + dx, 92)
+    ctx.lineTo(66 + dx, 56)
+    ctx.stroke()
+  }
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
+// Same warning-triangle badge as alertIcon, but with a small bus
+// silhouette instead of the exclamation mark — SIRI-SX alerts (see
+// layers/situations.ts) are always about the public-transport network
+// (resolved to a stop on a bus/train line), unlike the tourism Announcement
+// alerts (road-work, closures, ...) sharing this layer, so this is what
+// marks one as "about a bus/train service" rather than "about a road".
+function transitAlertIcon(color: string): ImageData {
+  const ctx = newCtx()
+  withOutline(ctx, color, () => {
+    ctx.beginPath()
+    ctx.moveTo(64, 14)
+    ctx.lineTo(116, 108)
+    ctx.lineTo(12, 108)
+    ctx.closePath()
+  })
+  ctx.fillStyle = '#ffffff'
+  roundRect(ctx, 40, 56, 48, 28, 6)
+  ctx.fill()
+  ctx.fillStyle = color
+  roundRect(ctx, 46, 62, 36, 10, 2)
+  ctx.fill()
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.arc(50, 90, 6, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(78, 90, 6, 0, Math.PI * 2)
+  ctx.fill()
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
+// An octagon badge (the ninth base shape, echoing a stop sign) with a
+// white horizontal bar — tagged "traffic-event:closure" announcements (see
+// layers/situations.ts). Deliberately not another triangle: a closure is a
+// hard stop, not a hazard to drive past carefully.
+function closureIcon(color: string): ImageData {
+  const ctx = newCtx()
+  const octagon = new Path2D()
+  const r = 52
+  for (let i = 0; i < 8; i++) {
+    const angle = (Math.PI / 4) * i + Math.PI / 8
+    const x = 64 + r * Math.cos(angle)
+    const y = 64 + r * Math.sin(angle)
+    if (i === 0) octagon.moveTo(x, y)
+    else octagon.lineTo(x, y)
+  }
+  octagon.closePath()
+  withOutlinePath(ctx, color, octagon)
+  ctx.fillStyle = '#ffffff'
+  roundRect(ctx, 32, 56, 64, 16, 8)
+  ctx.fill()
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
 // A hexagon badge (the seventh base shape) with a white raindrop glyph —
 // weather stations report both temperature and precipitation, so a
 // generic drop (rather than a thermometer) reads as "weather" broadly
@@ -336,6 +416,90 @@ function bikeParkingIcon(color: string): ImageData {
   return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
 }
 
+// A circle badge (distinct from the bike-parking teardrop) with the same
+// white bicycle glyph — a counter isn't a parking spot, so it gets the
+// rounder, more neutral base shape, matching eChargingIcon's silhouette
+// family but with the parking icon's cutout drawing re-used for the glyph.
+function bikeCounterIcon(color: string): ImageData {
+  const ctx = newCtx()
+  withOutline(ctx, color, () => {
+    ctx.beginPath()
+    ctx.arc(64, 64, 44, 0, Math.PI * 2)
+  })
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 6
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  for (const cx of [48, 80]) {
+    ctx.beginPath()
+    ctx.arc(cx, 72, 11, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+  ctx.beginPath()
+  ctx.moveTo(48, 72)
+  ctx.lineTo(62, 52)
+  ctx.lineTo(80, 72)
+  ctx.moveTo(62, 52)
+  ctx.lineTo(70, 44)
+  ctx.stroke()
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
+// A rounded-square badge (echoing the parking "P" square, since a
+// carsharing bay is a kind of parking spot) with a simple white car
+// silhouette inside — distinguishes from the bare taxi glyph (carIcon),
+// which has no badge background, by framing the car in a square.
+function carsharingIcon(color: string): ImageData {
+  const ctx = newCtx()
+  withOutline(ctx, color, () => roundRect(ctx, 14, 14, 100, 100, 20))
+  ctx.fillStyle = '#ffffff'
+  roundRect(ctx, 30, 58, 68, 20, 8)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.moveTo(38, 58)
+  ctx.lineTo(46, 42)
+  ctx.quadraticCurveTo(49, 38, 54, 38)
+  ctx.lineTo(74, 38)
+  ctx.quadraticCurveTo(79, 38, 82, 42)
+  ctx.lineTo(90, 58)
+  ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = color
+  for (const cx of [44, 84]) {
+    ctx.beginPath()
+    ctx.arc(cx, 80, 8, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
+// A rounded-rect "van" body (narrower and more boxlike than the bus, with a
+// single rear window instead of a long band) for the SIRI-VM demand-
+// responsive-transport layer — visually distinct from both the taxi
+// silhouette (bare car, no badge) and the regular-line bus glyph.
+function shuttleIcon(color: string): ImageData {
+  const ctx = newCtx()
+  withOutlinePath(ctx, color, roundRectPath(22, 20, 84, 82, 14))
+  ctx.fillStyle = '#ffffff'
+  roundRect(ctx, 34, 32, 60, 24, 5)
+  ctx.fill()
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.arc(42, 102, 13, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(86, 102, 13, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.arc(42, 102, 6, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(86, 102, 6, 0, Math.PI * 2)
+  ctx.fill()
+  return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
+}
+
 // A shield badge (a pentagon pointing down, distinct from every other base
 // shape) with three white wind lines — EAQI describes air, not a place or a
 // vehicle, so a wind glyph reads as "air quality" rather than weather.
@@ -359,14 +523,36 @@ function airQualityIcon(color: string): ImageData {
   return ctx.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE)
 }
 
-const DRAWERS: Record<string, (color: string) => ImageData> = {
+// Most layers draw one fixed shape regardless of color rule (status/band
+// only changes the fill). bicycle is the exception: it merges two feed
+// kinds (BikeParking boxes, BikeCounter sensors — see
+// layers/bicycle.ts) under one layer id, so its drawer picks a shape by
+// the rule's key prefix as well as its color.
+function bicycleIcon(color: string, key: string): ImageData {
+  return key.startsWith('counter') ? bikeCounterIcon(color) : bikeParkingIcon(color)
+}
+
+// bus_alert is the other multi-shape layer: tagged announcements (see
+// layers/situations.ts ALERT_COLOR_RULES) get a shape that matches their
+// category, everything else (untagged SIRI-SX alerts, unrecognized tags)
+// keeps the generic warning triangle.
+function alertIconByKey(color: string, key: string): ImageData {
+  if (key === 'closure') return closureIcon(color)
+  if (key === 'roadwork') return roadworkIcon(color)
+  if (key === 'transit') return transitAlertIcon(color)
+  return alertIcon(color)
+}
+
+const DRAWERS: Record<string, (color: string, key: string) => ImageData> = {
   parking: parkingIcon,
   e_charging: eChargingIcon,
   train_vehicle: trainIcon,
   bus_vehicle: busIcon,
-  bus_alert: alertIcon,
+  bus_alert: alertIconByKey,
   on_demand_vehicle: carIcon,
-  bike_parking: bikeParkingIcon,
+  on_demand_vm_vehicle: shuttleIcon,
+  bicycle: bicycleIcon,
+  carsharing_station: carsharingIcon,
   air_quality: airQualityIcon,
   flight: flightIcon,
   weather_station: weatherIcon,
@@ -382,7 +568,7 @@ export function registerIcons(map: maplibregl.Map, layer: Layer, colorRules: Col
   const draw = DRAWERS[layer]
   if (!draw) return
   for (const rule of colorRules) {
-    map.addImage(iconImageId(layer, rule.key), draw(rule.color))
+    map.addImage(iconImageId(layer, rule.key), draw(rule.color, rule.key))
   }
 }
 

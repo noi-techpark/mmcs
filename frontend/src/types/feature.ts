@@ -11,10 +11,13 @@ export type Layer =
   | 'bus_vehicle'
   | 'bus_alert'
   | 'on_demand_vehicle'
+  | 'on_demand_vm_vehicle'
   | 'flight'
   | 'weather_station'
   | 'traffic_station'
-  | 'bike_parking'
+  | 'traffic_segment'
+  | 'bicycle'
+  | 'carsharing_station'
   | 'air_quality'
 
 export type Status = 'ok' | 'warning' | 'critical' | 'unknown'
@@ -42,7 +45,9 @@ export interface Properties {
 export interface Feature {
   type: 'Feature'
   id: string
-  geometry: { type: string; coordinates: number[] }
+  // number[] for Point ([lon,lat]), number[][] for LineString (a list of
+  // [lon,lat] pairs) — see backend/internal/model/feature.go Geometry.
+  geometry: { type: string; coordinates: number[] | number[][] }
   properties: Properties
 }
 

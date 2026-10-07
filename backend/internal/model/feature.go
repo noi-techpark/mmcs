@@ -11,17 +11,20 @@ import "time"
 type Layer string
 
 const (
-	LayerParking     Layer = "parking"
-	LayerECharging   Layer = "e_charging"
-	LayerTrainVeh    Layer = "train_vehicle"
-	LayerBusVeh      Layer = "bus_vehicle"
-	LayerBusAlert    Layer = "bus_alert"
-	LayerOnDemand    Layer = "on_demand_vehicle"
-	LayerFlight      Layer = "flight"
-	LayerWeather     Layer = "weather_station"
-	LayerTraffic     Layer = "traffic_station"
-	LayerBikeParking Layer = "bike_parking"
-	LayerAirQuality  Layer = "air_quality"
+	LayerParking        Layer = "parking"
+	LayerECharging      Layer = "e_charging"
+	LayerTrainVeh       Layer = "train_vehicle"
+	LayerBusVeh         Layer = "bus_vehicle"
+	LayerBusAlert       Layer = "bus_alert"
+	LayerOnDemand       Layer = "on_demand_vehicle"
+	LayerOnDemandVM     Layer = "on_demand_vm_vehicle"
+	LayerFlight         Layer = "flight"
+	LayerWeather        Layer = "weather_station"
+	LayerTraffic        Layer = "traffic_station"
+	LayerTrafficSegment Layer = "traffic_segment"
+	LayerBicycle        Layer = "bicycle"
+	LayerCarsharing     Layer = "carsharing_station"
+	LayerAirQuality     Layer = "air_quality"
 )
 
 type Status string
@@ -33,14 +36,27 @@ const (
 	StatusUnknown  Status = "unknown"
 )
 
-// Geometry is a minimal GeoJSON geometry (Point / LineString / Polygon as needed).
+// Geometry is a minimal GeoJSON geometry (Point / LineString / Polygon as
+// needed). Coordinates shape depends on Type — []float64{lon,lat} for Point,
+// [][]float64 for LineString — so it's left as any and built via the
+// constructors below rather than typed per-shape.
 type Geometry struct {
-	Type        string    `json:"type"`
-	Coordinates []float64 `json:"coordinates"`
+	Type        string `json:"type"`
+	Coordinates any    `json:"coordinates"`
 }
 
 func Point(lon, lat float64) Geometry {
 	return Geometry{Type: "Point", Coordinates: []float64{lon, lat}}
+}
+
+// LineString builds a GeoJSON LineString from (lon,lat) pairs, e.g. a
+// LinkStation road section's start/end coordinates.
+func LineString(points [][2]float64) Geometry {
+	coords := make([][]float64, len(points))
+	for i, p := range points {
+		coords[i] = []float64{p[0], p[1]}
+	}
+	return Geometry{Type: "LineString", Coordinates: coords}
 }
 
 type Ref struct {

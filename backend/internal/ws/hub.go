@@ -27,8 +27,11 @@ var activeLayers = []model.Layer{
 	model.LayerFlight,
 	model.LayerWeather,
 	model.LayerTraffic,
+	model.LayerTrafficSegment,
 	model.LayerOnDemand,
-	model.LayerBikeParking,
+	model.LayerOnDemandVM,
+	model.LayerBicycle,
+	model.LayerCarsharing,
 	model.LayerAirQuality,
 }
 

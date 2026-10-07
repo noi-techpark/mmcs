@@ -10,8 +10,11 @@ import { situationsLayer } from './situations'
 import { flightsLayer } from './flights'
 import { weatherLayer } from './weather'
 import { trafficLayer } from './traffic'
+import { trafficSegmentLayer } from './trafficSegment'
 import { onDemandLayer } from './onDemand'
-import { bikeParkingLayer } from './bikeParking'
+import { onDemandVMLayer } from './onDemandVM'
+import { bicycleLayer } from './bicycle'
+import { carsharingLayer } from './carsharing'
 import { airQualityLayer } from './airQuality'
 import type { LayerDefinition } from './types'
 
@@ -29,10 +32,13 @@ export const LAYER_DEFINITIONS: LayerDefinition[] = [
   flightsLayer,
   busLayer,
   parkingLayer,
-  bikeParkingLayer,
+  bicycleLayer,
   onDemandLayer,
+  onDemandVMLayer,
+  carsharingLayer,
   eChargingLayer,
   weatherLayer,
   trafficLayer,
+  trafficSegmentLayer,
   airQualityLayer,
 ]

@@ -47,6 +47,42 @@ func Poll(ctx context.Context, client *Client, datasetID string, layer model.Lay
 	}
 }
 
+// PollAt runs a SIRI-VM feed at a complete, fixed URL (see Client.FetchVMAt)
+// on a fixed interval — for providers with a single endpoint rather than
+// Anshar's baseURL+datasetId convention (see Poll). datasetID still
+// namespaces feature ids/source tags, it just isn't part of the request.
+func PollAt(ctx context.Context, client *Client, fullURL, datasetID string, layer model.Layer, interval time.Duration, fs store.FeatureStore) {
+	tick := func() {
+		activities, err := client.FetchVMAt(fullURL)
+		if err != nil {
+			log.Printf("siri[%s]: %v", datasetID, err)
+			return
+		}
+		n := 0
+		for _, va := range activities {
+			f, ok := Normalize(datasetID, layer, va)
+			if !ok {
+				continue
+			}
+			fs.Upsert(f)
+			n++
+		}
+		log.Printf("siri[%s]: upserted %d features", datasetID, n)
+	}
+
+	tick()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			tick()
+		}
+	}
+}
+
 // PollLite runs a SIRI-lite VM feed (the whole province in one response, no
 // datasetId) on a fixed interval, normalizing and upserting each activity.
 // Blocks until ctx is cancelled.

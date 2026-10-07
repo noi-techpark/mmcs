@@ -25,14 +25,31 @@ export const TRAFFIC_SPEED_BAND_LABELS: Record<string, string> = {
   'free-flow': 'Over 100 km/h',
 }
 
-const TRAFFIC_SPEED_COLOR_RULES: ColorRule[] = [
+// Merano sensors carry a transit-count volume band instead of a speed band
+// (see backend/internal/feeds/odh/traffic.go trafficVolumeBand) — no live
+// measurements exist yet to calibrate these against, so treat the labels as
+// provisional too.
+export const TRAFFIC_VOLUME_BAND_LABELS: Record<string, string> = {
+  low: 'Low volume',
+  moderate: 'Moderate volume',
+  high: 'High volume',
+  'very-high': 'Very high volume',
+}
+
+export const TRAFFIC_SPEED_COLOR_RULES: ColorRule[] = [
   { key: 'very-slow', color: wheel(STATUS_HUES.critical), score: 100, test: (p) => p.data.speedBand === 'very-slow' },
   { key: 'slow', color: wheel(HUE_ORANGE), score: 60, test: (p) => p.data.speedBand === 'slow' },
   { key: 'moderate', color: wheel(HUE_YELLOW), score: 30, test: (p) => p.data.speedBand === 'moderate' },
   { key: 'free-flow', color: wheel(STATUS_HUES.ok), score: 0, test: (p) => p.data.speedBand === 'free-flow' },
+  // Merano's volume bands reuse the same four hues so both sources read as
+  // one continuum, just keyed off a different Data field.
+  { key: 'volume-very-high', color: wheel(STATUS_HUES.critical), score: 90, test: (p) => p.data.volumeBand === 'very-high' },
+  { key: 'volume-high', color: wheel(HUE_ORANGE), score: 55, test: (p) => p.data.volumeBand === 'high' },
+  { key: 'volume-moderate', color: wheel(HUE_YELLOW), score: 25, test: (p) => p.data.volumeBand === 'moderate' },
+  { key: 'volume-low', color: wheel(STATUS_HUES.ok), score: 0, test: (p) => p.data.volumeBand === 'low' },
   { key: 'unknown', color: STATUS_COLORS.unknown, score: 0, test: () => true },
 ]
 
 // Own file so its defaults/coloring can be tuned independently of the other
 // layers — see layers/definitions.ts for how these get registered.
-export const trafficLayer = createPointLayer('traffic_station', 'Traffic (A22)', {}, TRAFFIC_SPEED_COLOR_RULES, true, undefined, [], 0)
+export const trafficLayer = createPointLayer('traffic_station', 'Traffic', {}, TRAFFIC_SPEED_COLOR_RULES, true, undefined, [], 0)

@@ -1,0 +1,33 @@
+# image.tag is set at deploy time by the CI/CD workflow (see .github/workflows/main.yml).
+image:
+  tag: ""
+
+# ODH_CLIENT_ID / ODH_CLIENT_SECRET are patched into secretEnv at deploy
+# time by the CI/CD workflow, from GitHub Actions repo secrets.
+env:
+  # Realm-specific — must match whichever realm ODH_CLIENT_ID/SECRET (repo
+  # secrets, patched into secretEnv above) are registered in. See
+  # .env.example for the test-realm alternative.
+  ODH_TOKEN_URL: "https://auth.opendatahub.com/auth/realms/noi/protocol/openid-connect/token"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/issuer: "letsencrypt-prod"
+  tls:
+    - hosts:
+        - mmcs.opendatahub.com
+      secretName: tls-open-mmc
+  hosts:
+    - host: mmcs.opendatahub.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 20m
+  limits:
+    memory: 896Mi

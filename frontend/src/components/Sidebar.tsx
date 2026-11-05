@@ -153,7 +153,10 @@ export function Sidebar({ visibleLayers, onToggle, layerOptions, onOptionsChange
       }}
     >
       <div style={{ padding: '16px 18px', borderBottom: '1px solid #2f3237' }}>
-        <div style={{ fontSize: 16, fontWeight: 700 }}>Mobility Control Center</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>Mobility Control Center</div>
+          <opendatahub-lifecycle-badge lifecycle="RnD"></opendatahub-lifecycle-badge>
+        </div>
         <div style={{ fontSize: 12, marginTop: 4, color: connected ? '#2ecc8f' : '#ff5c5c' }}>
           ● {connected ? 'live' : 'disconnected'}
         </div>
